@@ -1,0 +1,340 @@
+* What is emacs-central.org?
+
+#+BEGIN_SRC org :tangle README.org
+  Emacs is an advanced editor with enormous capabilities, The fact that it is built with Emacs-lisp
+  that is a dialect of LISP programming language makes it a powerful editor. Natively, Emacs is built
+  with defaults that suited its origins. The current builtin Emacs tools are capable yet they lag
+  behind current other editors and IDEs. Luckily, Emacs LISP can turn Emacs itself into a modern
+  looking text editor with many features that both novice computer user and experienced programmer
+  would appreciate. Emacs is highly configurable and customizable through the use of Emacs
+  LISP. Configuring Emacs properly can turn it into this powerful editor.
+
+  Emacs configuration currently resides either in a .emacs file in the user $HOME dir, in an "init.el"
+  file within a ".emacs.d" dir under the user $HOME dir or in an "init.el" file that resides within an
+  "emacs" directory within $XDG-CONFIG-DIR. If a user uses a single file to write down many tweaks and
+  configuration, this file might soon becomes unorganized. Using Org-mode file(s) to configure Emacs
+  become handy when the user needs an "organized" complex Emacs configuration.
+
+  Within Light Emacs, Emacs configuration is moulded in a Central Emacs Org-mode file that is called
+  "emacs-central.org". The aim is that if a user wants to use Light Emacs, he (she) can regenerate the
+  whole sibling configuration files by simply tangling this file.
+
+#+END_SRC
+
+* LMX Core components
+
+Light Emacs distribution core components include the following ones:
+
+1- Emacs initialization files (early-init.el and init.el)
+2- Distribution core file
+3- Distribution user interface file
+4- Distribution library file
+5- Distribution package management file
+
+** LMX Initialization
+
+*** Early Init file
+
+Many of the settings put within this section are put after reading "Elisp info>Init file". The aim
+of the statements is to remove unnecessary programs from /emacs initialization/ to boost the later.
+
+#+BEGIN_SRC emacs-lisp :tangle early-init.el
+  ;;; early-init.el -*- lexical-binding: t -*-
+
+  ;; Postpone garbage collection till after emacs is initiated
+
+  (setq gc-cons-threshold most-positive-fixnum)
+
+  ;; Boost emacs startup by disabling certain autoloaded variables
+
+  (setq inhibit-splash-screen t
+	package-enable-at-startup nil
+	initial-scratch-message nil
+	initial-major-mode #'fundamental-mode
+	frame-inhibit-implied-resize t
+	make-backup-files nil)
+
+  (setq read-process-output-max (* 1024 1024))
+  (setenv "LSP_USE_PLISTS" "true")
+
+  (setq max-lisp-eval-depth 48000)
+
+  (setq-default fill-column 100) ; Set the default fill column to 100
+  (advice-add #'package--ensure-init-file :override #'ignore)
+
+  ;; Add the core directory to load-path
+
+  (add-to-list 'load-path (concat user-emacs-directory "core/"))
+
+  (require 'distrib)
+
+
+  ;; Disable menus, toolbar and scroll-bar
+
+  ;; Remember that nil, () and 0 are alike as boolean FALSE is passed as an
+  ;; argument to a function
+
+  (menu-bar-mode 0)
+
+  ;; On some environments emacs is not built with all features, therefore the
+  ;; "(when (fbooundp `feature)) is used and the setting follows the true
+  ;; value.
+
+  (when (fboundp 'tool-bar-mode)
+    (tool-bar-mode 0))
+
+  (when (fboundp 'scroll-bar-mode)
+    (scroll-bar-mode 0))
+
+#+END_SRC
+
+*** Emacs Init file
+
+#+BEGIN_SRC emacs-lisp :tangle init.el
+  ;; (require 'modeline)
+  ;; (require 'themes)
+  ;; (require 'version-control)
+  ;; (require 'snippets)
+  ;; (require 'completions)
+  ;; (require 'ligature)
+  ;; (require 'progconf)
+  ;; (require 'orgmode)
+  ;; (require 'dist-evil)
+  ;; (require 'dist-editorconfig)
+  ;; (require 'dist-codespaces)
+  ;; (require 'keymaps-manager)
+  ;; (require 'langserverprotocol)
+  ;; (require 'dist-debug)
+  ;; (require 'tex-lang)
+  ;; (require 'python-lang)
+  ;; (require 'html_css-lang)
+  ;; (require 'javascript-lang)
+  ;; (require 'lua-lang)
+  ;; (require 'treesitter)
+  ;; (require 'autoformatter)
+  ;; (require 'financial)
+
+  ;; Personal information
+  (setq user-full-name "Hassan Abdin"
+	user-mail-address "habdin@gmail.com")
+
+  (setq eshell-directory-name (concat distrib-local-dir "eshell"))
+  ;; (lmx-load-theme 'doom-tokyo-night)		; Set the theme
+  (global-auto-revert-mode t) ; Sync file buffers with disk file changes
+  (fset 'yes-or-no-p 'y-or-n-p) 	; Set default 'yes or no' prompt to a short form
+  (setq-default auto-fill-function 'do-auto-fill)
+  (setq tab-width 2)
+
+#+END_SRC
+
+*** Distribution specific files
+**** Main Distribution file
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib.el
+  ;;; distrib.el -*- lexical-binding: t ; -*-
+
+  (require 'distrib-ui)
+  (require 'distrib-lib)
+  (require 'distrib-packagers)
+
+  ;; Setting defaults directories for different emacs packages
+
+  (setq bookmark-default-file (concat distrib-cache-dir "bookmarks")
+	package-user-dir (concat distrib-local-dir "elpa/")
+	auto-save-list-file-prefix (cond ((eq (system-name) 'ms-dos)
+					(concat
+					 distrib-cache-dir "auto-save.list/_s"))
+				       (t
+					(concat
+					 distrib-cache-dir "auto-save-list/.saves-"))))
+
+  (let ((default-directory (eval distrib-modules-dir)))
+    (normal-top-level-add-subdirs-to-load-path))
+
+  (add-to-list 'native-comp-eln-load-path (concat distrib-cache-dir "eln-cache/"))
+  (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+  (load custom-file)
+
+  ;; Distribution defaults
+
+  (set-language-environment "utf-8")
+  (set-default-coding-systems 'utf-8)
+
+  (show-paren-mode t)
+  (electric-pair-mode t) ; Enable automatic parens completion at startup
+  (column-number-mode t) ; Show column number
+
+  (provide 'distrib)
+
+
+#+END_SRC
+
+**** User interface distribution dependency file
+
+The file is concerned with setting defaults for user interface for the whole
+distribution.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-ui.el
+  ;;; distrib-ui.el -*- lexical-binding: t ; -*-
+
+  ;; =========================
+  ;; Setting Global Emacs font
+  ;; =========================
+  ;; There are two methods for setting the Emacs Font using Lisp
+  ;; 1- using (add-to-list 'default-frame-alist
+  ;; '(font . "Font_name-Font_size")).
+  ;;
+  ;; This sets the font for future emacs sessions
+  ;; 2- using (set-face-attribute 'default nil :font
+  ;; "Font_name" :height integer_for_font_height).
+  ;;
+  ;; This sets the font globally for emacs instantaneously and
+  ;; for future Emacs sessions.
+
+
+  (setq distrib-name "Light Emacs"
+	frame-title-format
+	'("" (:eval 'distrib-name) "\t-\t"
+	(:eval (if (buffer-file-name)
+		   (abbreviate-file-name (buffer-file-name))
+		 "%b"))))
+
+  (set-face-attribute 'default nil :font "Iosevka" :height 100)
+  (global-hl-line-mode t)
+  ;; Set custom functions
+
+  (defun lmx-load-theme (theme)
+    "Load downloaded theme."
+    (interactive
+     (list
+      (intern (completing-read "Load custom theme: "
+			     (mapcar #'symbol-name
+				     (custom-available-themes))))))
+    (load-theme theme t))
+
+  (provide 'distrib-ui)
+#+END_SRC
+
+**** Distribution library dependency file
+
+The file is concerned with a library of variables and functions that govern
+the behaviour of the distribution.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-lib.el
+  ;;; distrib-lib.el -*- lexical-binding: t; -*-
+
+  ;; This package provides variables and functions for
+  ;; the emacs distribution
+
+  ;; Set default directory locations
+  (defgroup distribution nil
+    "Emacs distribution customization"
+    :group 'Emacs)
+
+  (defcustom distrib-name nil
+    "Emacs distribution name"
+    :type 'string
+    :group 'distribution)
+
+  (defcustom distrib-core-dir (concat user-emacs-directory "core/")
+    "Default distribution core directory"
+    :type 'string
+    :group 'distribution)
+  t
+  (defcustom distrib-cache-dir (concat user-emacs-directory ".cache/")
+    "Default distribution cache directory"
+    :type 'string
+    :group 'distribution)
+
+  (defcustom distrib-local-dir (concat user-emacs-directory ".local/")
+    "Distribution default local directory"
+    :type 'string
+    :group 'distribution)
+
+  (defcustom distrib-modules-dir (concat user-emacs-directory "modules/")
+    "Distribution default modules directory"
+    :type 'string
+    :group 'distribution)
+
+
+
+  (provide 'distrib-lib)
+
+#+END_SRC
+
+**** Distribution package management dependency file
+
+The package management dependency file configures the *package installer*,
+and other package list software.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-packagers.el
+  ;;; distrib-packagers.el -*- lexical-binding: t; =*-
+
+  ;; Initialize Straight package manager 
+  (setq straight-base-dir distrib-local-dir
+	straight-repository-branch "develop"
+	straight-cache-autoloads t
+	straight-check-for-modifications nil
+	straight-enable-package-integration nil
+	straight-vc-git-default-clone-depth 1
+	autoload-compute-prefixes nil
+	straight-use-package-by-default t)
+
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+	 (expand-file-name "straight/repos/straight.el/bootstrap.el" distrib-local-dir))
+	(bootstrap-version 5))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+	(url-retrieve-synchronously
+	 "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+	 'silent 'inhibit-cookies)
+	(goto-char (point-max))
+	(eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+
+  ;; Install use-package
+  (straight-use-package 'use-package)
+
+  (use-package use-package
+    :config
+    (setq use-package-always-defer t))
+
+  ;; Install Paradox for browsing packages
+  (use-package paradox
+    :straight t
+    :config
+    (setq paradox-github-token (concat user-emacs-directory "paradox-token")))
+
+
+  ;; Install diminish and delight for use with use-package when needed.
+  (use-package diminish
+    :straight t
+    )
+
+  (use-package delight
+    :straight t
+    )
+
+  ;; Configure Package
+
+  (use-package package
+    :config
+    (setq package-enable-at-startup nil)
+    (setq package-user-dir (concat distrib-local-dir "elpa/")
+	package-gnupghome-dir (expand-file-name "gpg" package-user-dir))
+    (add-to-list 'package-archives
+	       '("gnu" . "https://elpa.gnu.org/packages/") t)
+    (add-to-list 'package-archives`
+	       '("melpa" . "http://melpa.org/packages/") t)
+    (add-to-list 'package-archives
+	       '("org" . "http://orgmode.org/elpa/") t))
+
+  ;; Install epkg to view packages in Emacsmirror
+  (use-package epkg
+    :straight t
+    :config
+    (setq epkg-repository (expand-file-name "epkgs/" distrib-local-dir)))
+
+  (provide 'distrib-packagers)
+#+END_SRC
