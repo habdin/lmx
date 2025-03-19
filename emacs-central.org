@@ -1,5 +1,4 @@
 * What is emacs-central.org?
-
 #+BEGIN_SRC org :tangle README.org
   Emacs is an advanced editor with enormous capabilities, The fact that it is built with Emacs-lisp
   that is a dialect of LISP programming language makes it a powerful editor. Natively, Emacs is built
@@ -35,8 +34,9 @@ Light Emacs distribution core components include the following ones:
 
 *** Early Init file
 
-Many of the settings put within this section are put after reading "Elisp info>Init file". The aim
-of the statements is to remove unnecessary programs from /emacs initialization/ to boost the later.
+Many of the settings put within this section are put after reading "Elisp
+info>Init file". The aim of the statements is to remove unnecessary programs
+from /emacs initialization/ to boost the latter.
 
 #+BEGIN_SRC emacs-lisp :tangle early-init.el
   ;;; early-init.el -*- lexical-binding: t -*-
@@ -44,15 +44,16 @@ of the statements is to remove unnecessary programs from /emacs initialization/ 
   ;; Postpone garbage collection till after emacs is initiated
 
   (setq gc-cons-threshold most-positive-fixnum)
+  (startup-redirect-eln-cache (concat user-emacs-directory "/.cache/eln-cache"))
 
   ;; Boost emacs startup by disabling certain autoloaded variables
 
   (setq inhibit-splash-screen t
-	package-enable-at-startup nil
-	initial-scratch-message nil
-	initial-major-mode #'fundamental-mode
-	frame-inhibit-implied-resize t
-	make-backup-files nil)
+    package-enable-at-startup nil
+    initial-scratch-message nil
+    initial-major-mode #'fundamental-mode
+    frame-inhibit-implied-resize t
+    make-backup-files nil)
 
   (setq read-process-output-max (* 1024 1024))
   (setenv "LSP_USE_PLISTS" "true")
@@ -91,39 +92,44 @@ of the statements is to remove unnecessary programs from /emacs initialization/ 
 *** Emacs Init file
 
 #+BEGIN_SRC emacs-lisp :tangle init.el
-  ;; (require 'modeline)
-  ;; (require 'themes)
-  ;; (require 'version-control)
-  ;; (require 'snippets)
-  ;; (require 'completions)
-  ;; (require 'ligature)
-  ;; (require 'progconf)
-  ;; (require 'orgmode)
-  ;; (require 'dist-evil)
-  ;; (require 'dist-editorconfig)
-  ;; (require 'dist-codespaces)
-  ;; (require 'keymaps-manager)
+  (require 'modeline)
+  (require 'themes)
+  (require 'version-control)
+  (require 'snippets)
+  (require 'completions)
+  (require 'ligature)
+  (require 'progconf)
+  (require 'orgmode)
+  (require 'dist-evil)
+  (require 'dist-editorconfig)
+  (require 'dist-codespaces)
+  (require 'keymaps-manager)
   ;; (require 'langserverprotocol)
-  ;; (require 'dist-debug)
-  ;; (require 'tex-lang)
-  ;; (require 'python-lang)
-  ;; (require 'html_css-lang)
-  ;; (require 'javascript-lang)
-  ;; (require 'lua-lang)
-  ;; (require 'treesitter)
-  ;; (require 'autoformatter)
-  ;; (require 'financial)
+  (require 'dist-debug)
+  (require 'tex-lang)
+  (require 'python-lang)
+  (require 'csharp-lang)
+  (require 'html_css-lang)
+  (require 'javascript-lang)
+  (require 'lua-lang)
+  (require 'treesitter)
+  (require 'autoformatter)
+  (require 'ai)
+  (require 'financial)
 
   ;; Personal information
   (setq user-full-name "Hassan Abdin"
-	user-mail-address "habdin@gmail.com")
+  	  user-mail-address "habdin@gmail.com")
 
-  (setq eshell-directory-name (concat distrib-local-dir "eshell"))
-  ;; (lmx-load-theme 'doom-tokyo-night)		; Set the theme
+  (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
+  (add-hook 'after-init-hook (lambda ()
+  							 (set-face-attribute 'default nil :font "Iosevka" :height 120)))
+  (lmx-load-theme 'doom-tokyo-night)		; Set the theme
   (global-auto-revert-mode t) ; Sync file buffers with disk file changes
-  (fset 'yes-or-no-p 'y-or-n-p) 	; Set default 'yes or no' prompt to a short form
+  (global-ligature-mode)
+  (fset 'yes-or-no-p 'y-or-n-p)	; Set default 'yes or no' prompt to a short form
   (setq-default auto-fill-function 'do-auto-fill)
-  (setq tab-width 2)
+  (setq-default tab-width 4)
 
 #+END_SRC
 
@@ -140,18 +146,19 @@ of the statements is to remove unnecessary programs from /emacs initialization/ 
   ;; Setting defaults directories for different emacs packages
 
   (setq bookmark-default-file (concat distrib-cache-dir "bookmarks")
-	package-user-dir (concat distrib-local-dir "elpa/")
-	auto-save-list-file-prefix (cond ((eq (system-name) 'ms-dos)
-					(concat
-					 distrib-cache-dir "auto-save.list/_s"))
-				       (t
-					(concat
-					 distrib-cache-dir "auto-save-list/.saves-"))))
+    package-user-dir (concat distrib-local-dir "elpa/")
+    auto-save-list-file-prefix (cond ((eq (system-name) 'ms-dos)
+  				    (concat
+  				     distrib-cache-dir "auto-save.list/_s"))
+  				   (t
+  				    (concat
+  				     distrib-cache-dir "auto-save-list/.saves-"))))
 
   (let ((default-directory (eval distrib-modules-dir)))
     (normal-top-level-add-subdirs-to-load-path))
 
-  (add-to-list 'native-comp-eln-load-path (concat distrib-cache-dir "eln-cache/"))
+  ;; (add-to-list 'native-comp-eln-load-path (concat distrib-cache-dir "eln-cache/"))
+  (setq native-compile-target-directory (concat distrib-cache-dir "eln-cache"))
   (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
   (load custom-file)
 
@@ -164,9 +171,42 @@ of the statements is to remove unnecessary programs from /emacs initialization/ 
   (electric-pair-mode t) ; Enable automatic parens completion at startup
   (column-number-mode t) ; Show column number
 
+  (use-package recentf
+    :config
+    (run-at-time nil (* 60 60) 'recentf-save-list)
+    :custom
+    (recentf-save-file (concat distrib-cache-dir "recentf") "File to save the recent list into.")
+    (recentf-max-saved-items 1000 "Maximum number of items of the recent list that will be
+  saved.")
+    (recentf-auto-cleanup 'never "Define when to automatically cleanup the recent list.")
+    (recentf-exclude '("/ssh:")))
+
+  (use-package whitespace
+    :custom
+    (whitespace-action 'auto-cleanup "Specify which action is taken when a buffer is visited or
+    written.")
+    (whitespace-line-column 10000))
+
+  (use-package eshell
+    :custom
+    (eshell-directory-name (concat distrib-cache-dir "eshell")))
+
+  (use-package project
+    :custom
+    (project-list-file (concat distrib-cache-dir "projects")))
+
+  (use-package url
+    :custom (url-configuration-directory (concat distrib-cache-dir "url")))
+
+  (use-package gcmh
+    :straight t
+    :init
+    (setq gcmh-idle-delay 5
+  		gcmh-high-cons-threshold most-positive-fixnum
+  		gcmh-low-cons.thresold 16777216)
+    :config (gcmh-mode 1))
+
   (provide 'distrib)
-
-
 #+END_SRC
 
 **** User interface distribution dependency file
@@ -193,32 +233,23 @@ distribution.
 
 
   (setq distrib-name "Light Emacs"
-	frame-title-format
-	'("" (:eval 'distrib-name) "\t-\t"
-	(:eval (if (buffer-file-name)
-		   (abbreviate-file-name (buffer-file-name))
-		 "%b"))))
+        frame-title-format
+        '("" (:eval distrib-name)
+  		"\s-\s"
+  		(:eval (if (project-current)
+  				   (let ((proj-dir (project-root (project-current))))
+  					 (abbreviate-file-name proj-dir))
+  				 (abbreviate-file-name default-directory)))))
 
-  (set-face-attribute 'default nil :font "Iosevka" :height 100)
   (global-hl-line-mode t)
-  ;; Set custom functions
-
-  (defun lmx-load-theme (theme)
-    "Load downloaded theme."
-    (interactive
-     (list
-      (intern (completing-read "Load custom theme: "
-			     (mapcar #'symbol-name
-				     (custom-available-themes))))))
-    (load-theme theme t))
 
   (provide 'distrib-ui)
 #+END_SRC
 
 **** Distribution library dependency file
 
-The file is concerned with a library of variables and functions that govern
-the behaviour of the distribution.
+The file within this section provides a library of variables and functions that govern the behaviour
+of the distribution.
 
 #+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-lib.el
   ;;; distrib-lib.el -*- lexical-binding: t; -*-
@@ -240,7 +271,7 @@ the behaviour of the distribution.
     "Default distribution core directory"
     :type 'string
     :group 'distribution)
-  t
+  
   (defcustom distrib-cache-dir (concat user-emacs-directory ".cache/")
     "Default distribution cache directory"
     :type 'string
@@ -256,7 +287,14 @@ the behaviour of the distribution.
     :type 'string
     :group 'distribution)
 
-
+  (defun lmx-load-theme (theme)
+    "Load downloaded theme."
+    (interactive
+     (list
+      (intern (completing-read "Load custom theme: "
+			     (mapcar #'symbol-name
+				     (custom-available-themes))))))
+    (load-theme theme t))
 
   (provide 'distrib-lib)
 
@@ -270,7 +308,7 @@ and other package list software.
 #+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-packagers.el
   ;;; distrib-packagers.el -*- lexical-binding: t; =*-
 
-  ;; Initialize Straight package manager 
+  ;; Initialize Straight package manager
   (setq straight-base-dir distrib-local-dir
 	straight-repository-branch "develop"
 	straight-cache-autoloads t
@@ -297,7 +335,7 @@ and other package list software.
   (straight-use-package 'use-package)
 
   (use-package use-package
-    :config
+    :init
     (setq use-package-always-defer t))
 
   ;; Install Paradox for browsing packages
@@ -338,3 +376,892 @@ and other package list software.
 
   (provide 'distrib-packagers)
 #+END_SRC
+
+* Lmx modules
+
+The configuration files for all the modules reside in the modules distribution
+directory. All modules categories tangle in corresponding child category
+module directory.
+
+** UI
+*** Modeline
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/ui/modeline.el
+  ;;; modeline.el -*- lexical-binding: t; -*-
+
+  (defun fix-doom-modeline (frame)
+    "Fix doom modeline to make it show modeline icons when Emacs is started as daemon.
+     FRAME is the name of the frame."
+    (with-selected-frame frame
+  	(when (display-graphic-p)
+  	  (setq doom-modeline-icon t))))
+
+  (use-package doom-modeline
+    :straight t
+    :init (doom-modeline-mode 1)
+    (setq doom-modeline-height 25)
+    :config
+    (if (not (display-graphic-p))
+  	  (setq doom-modeline-icon nil))
+    (if (daemonp)
+  	  (add-hook 'after-make-frame-functions #'fix-doom-modeline)
+  	(doom-modeline-mode 1)))
+
+  (provide 'modeline)
+
+#+END_SRC
+
+*** Themes
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/ui/themes.el
+  ;;; themes.el -*- lexical-binding: t ; -*-
+
+  (use-package doom-themes
+    :straight t)
+
+  (use-package all-the-icons
+    :straight t
+    )
+
+  (use-package all-the-icons-dired
+    :straight t
+    :after all-the-icons
+
+    :config
+    (add-hook 'dired-mode-hook 'all-the-icons-dired-mode))
+
+  (provide 'themes)
+#+END_SRC
+
+** Tools
+*** Autocompletion support
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/completions.el
+  ;;; completions.el -*- lexical-binding = t; -*-
+
+  (use-package vertico
+    :straight t
+    :init (vertico-mode)
+    )
+
+  (use-package savehist
+    :config (setq savehist-file (expand-file-name "history" distrib-cache-dir))
+    :init
+    (savehist-mode))
+
+  (use-package orderless
+    :straight t
+
+    :custom
+    (setq completion-styles '(orderless basic)
+  	completion-category-defaults nil
+  	completion-category-overrides '((file (styles partial-completion)))))
+
+  (use-package marginalia
+    :straight t
+    :init (marginalia-mode)
+    :bind (("M-A" . marginalia-cycle)
+  	 :map minibuffer-local-map
+  	 ("M-A" . marginalia-cycle)))
+
+  (use-package consult
+    ;; Replace bindings. Lazily loaded due by `use-package'.
+    :bind (;; C-c bindings (mode-specific-map)
+  	 ("C-c h" . consult-history)
+  	 ("C-c m" . consult-mode-command)
+  	 ("C-c k" . consult-kmacro)
+  	 ;; C-x bindings (ctl-x-map)
+  	 ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
+  	 ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+  	 ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+  	 ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+  	 ("C-x r b" . consult-bookmark)            ;; orig. bookmark-jump
+  	 ("C-x p b" . consult-project-buffer)      ;; orig. project-switch-to-buffer
+  	 ;; Custom M-# bindings for fast register access
+  	 ("M-#" . consult-register-load)
+  	 ("M-'" . consult-register-store)          ;; orig. abbrev-prefix-mark (unrelated)
+  	 ("C-M-#" . consult-register)
+  	 ;; Other custom bindings
+  	 ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+  	 ;; M-g bindings (goto-map)
+  	 ("M-g e" . consult-compile-error)
+  	 ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
+  	 ("M-g g" . consult-goto-line)             ;; orig. goto-line
+  	 ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+  	 ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
+  	 ("M-g m" . consult-mark)
+  	 ("M-g k" . consult-global-mark)
+  	 ("M-g i" . consult-imenu)
+  	 ("M-g I" . consult-imenu-multi)
+  	 ;; M-s bindings (search-map)
+  	 ("M-s d" . consult-find)
+  	 ("M-s D" . consult-locate)
+  	 ("M-s g" . consult-grep)
+  	 ("M-s G" . consult-git-grep)
+  	 ("M-s r" . consult-ripgrep)
+  	 ("M-s l" . consult-line)
+  	 ("M-s L" . consult-line-multi)
+  	 ("M-s k" . consult-keep-lines)
+  	 ("M-s u" . consult-focus-lines)
+  	 ;; Isearch integration
+  	 ("M-s e" . consult-isearch-history)
+  	 :map isearch-mode-map
+  	 ("M-e" . consult-isearch-history)         ;; orig. isearch-edit-string
+  	 ("M-s e" . consult-isearch-history)       ;; orig. isearch-edit-string
+  	 ("M-s l" . consult-line)                  ;; needed by consult-line to detect isearch
+  	 ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
+  	 ;; Minibuffer history
+  	 :map minibuffer-local-map
+  	 ("M-s" . consult-history)                 ;; orig. next-matching-history-element
+  	 ("M-r" . consult-history))                ;; orig. previous-matching-history-element
+
+    ;; Enable automatic preview at point in the *Completions* buffer. This is
+    ;; relevant when you use the default completion UI.
+    :hook (completion-list-mode . consult-preview-at-point-mode)
+
+    ;; The :init configuration is always executed (Not lazy)
+    :init
+
+    ;; Optionally configure the register formatting. This improves the register
+    ;; preview for `consult-register', `consult-register-load',
+    ;; `consult-register-store' and the Emacs built-ins.
+    (setq register-preview-delay 0.5
+  	register-preview-function #'consult-register-format)
+
+    ;; Optionally tweak the register preview window.
+    ;; This adds thin lines, sorting and hides the mode line of the window.
+    (advice-add #'register-preview :override #'consult-register-window)
+
+    ;; Use Consult to select xref locations with preview
+    (setq xref-show-xrefs-function #'consult-xref
+  	xref-show-definitions-function #'consult-xref)
+
+    ;; Configure other variables and modes in the :config section,
+    ;; after lazily loading the package.
+    :config
+
+    ;; Optionally configure preview. The default value
+    ;; is 'any, such that any key triggers the preview.
+    ;; (setq consult-preview-key 'any)
+    ;; (setq consult-preview-key (kbd "M-."))
+    ;; (setq consult-preview-key (list (kbd "<S-down>") (kbd "<S-up>")))
+    ;; For some commands and buffer sources it is useful to configure the
+    ;; :preview-key on a per-command basis using the `consult-customize' macro.
+    (consult-customize
+     consult-theme :preview-key '(:debounce 0.2 any)
+     consult-ripgrep consult-git-grep consult-grep
+     consult-bookmark consult-recent-file consult-xref
+     consult--source-bookmark consult--source-file-register
+     consult--source-recent-file consult--source-project-recent-file
+     ;; :preview-key (kbd "M-.")
+     :preview-key '(:debounce 0.4 any))
+
+    ;; Optionally configure the narrowing key.
+    ;; Both < and C-+ work reasonably well.
+    (setq consult-narrow-key "<") ;; (kbd "C-+")
+
+    ;; Optionally make narrowing help available in the minibuffer.
+    ;; You may want to use `embark-prefix-help-command' or which-key instead.
+    ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
+
+    ;; By default `consult-project-function' uses `project-root' from project.el.
+    ;; Optionally configure a different project root function.
+    ;; There are multiple reasonable alternatives to chose from.
+  					;;;; 1. project.el (the default)
+    ;; (setq consult-project-function #'consult--default-project--function)
+  					;;;; 2. projectile.el (projectile-project-root)
+    ;; (autoload 'projectile-project-root "projectile")
+    ;; (setq consult-project-function (lambda (_) (projectile-project-root)))
+  					;;;; 3. vc.el (vc-root-dir)
+    ;; (setq consult-project-function (lambda (_) (vc-root-dir)))
+  					;;;; 4. locate-dominating-file
+    ;; (setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
+    )
+
+  (use-package consult-company
+    :straight t
+    )
+
+  (use-package consult-eglot
+    :straight t
+    )
+
+  (use-package consult-yasnippet
+    :straight t
+    )
+
+  ;; (use-package ivy
+  ;;   :straight t
+  ;;   :config
+  ;;   (setq ivy-count-format "[%d/%d] "
+  ;; 	ivy-height 15)
+  ;;   (ivy-mode 1)
+  ;;   :bind
+  ;;   (
+  ;;    ("C-s" . 'swiper-isearch)
+  ;;    ("C-r" . 'swiper-isearch-backward)
+  ;;    ("M-x" . 'counsel-M-x)
+  ;;    ("C-x C-f" . 'counsel-find-file)
+  ;;    ("M-y" . 'counsel-yank-pop)
+  ;;    ("<F1>-f" . 'counsel-describe-function)
+  ;;    ("<F1>-v" . 'counsel-describe-variable)
+  ;;    ("<f1> o" . 'counsel-describe-symbol)
+  ;;    ("<F1>-l" . 'counsel-find-library)
+  ;;    ("<F2>-i" . 'counsel-info-lookup-symbol)
+  ;;    ("<F2>-u" . 'counsel-unicode-char)
+  ;;    ("<F2>-j" . 'counsel-set-variable)
+  ;;    ("C-x b" . 'ivy-switch-buffer)
+  ;;    ("C-c v" . 'ivy-push-view)
+  ;;    ("C-c V" . 'ivy-pop-view)
+  ;;    ))
+
+  ;; (use-package ivy-posframe
+  ;;   :straight t
+  ;;   :after ivy
+  ;;   :config
+  ;;   (setq ivy-posframe-display-functions-alist '((t . ivy-posframe-display-at-frame-bottom-window-center)))
+  ;;   (ivy-posframe-mode t))
+
+  ;; (use-package ivy-hydra)
+
+  ;; (use-package ivy-rich
+  ;;   :straight t
+  ;;   
+  ;;   :after ivy counsel
+  ;;   :init
+  ;;   (ivy-rich-mode))
+
+  ;; (use-package all-the-icons-ivy-rich
+  ;;   :straight t
+  ;;   
+  ;;   :after ivy ivy-rich counsel
+  ;;   :init (all-the-icons-ivy-rich-mode)
+  ;;   :config
+  ;;   (setq all-the-icons-ivy-rich-icon-size 1.5))
+
+  ;; (use-package counsel
+  ;;   :straight t
+  ;;   )
+
+  ;; (use-package counsel-projectile
+  ;;   :straight t
+  ;;   :after projectile counsel)
+
+  ;; (use-package counsel-pydoc)
+
+
+  ;; Use `company-mode' for in-buffer autocompletion. Company Mode has many backends.
+  ;; These will be configured in here as well.
+
+  (use-package company
+    :straight t
+    :init
+    (setq company-idle-delay 0.1
+  	company-minimum-prefix-length 2
+  	company-tooltip-align-annotations t
+  	company-global-modes '(not help-mode gud-mode message-mode erc-mode))
+    (global-company-mode t)
+    :bind
+    ("M-C-i" . 'company-complete))
+
+  (use-package company-lsp
+    :straight t
+    :config (push 'company-lsp company-backends))
+
+  ;; (use-package company-web
+  ;;   :straight t
+  ;;   )
+
+  ;; (use-package company-box
+  ;;   :straight t
+  ;;   :hook (company-mode . company-box-mode)
+  ;;   :config
+  ;;   (setq company-box-icons-alist 'company-box-icons-all-the-icons))
+
+  ;; (use-package company-jedi
+  ;;   :straight t
+  ;;   :after company elpy
+  ;;   :config
+  ;;   (add-to-list 'company-backends 'company-jedi))
+
+  (provide 'completions)
+#+END_SRC
+
+*** Autoformat support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/autoformatter.el
+  ;;; autoformatter.el -*- lexical-binding: t; -*- 
+
+  (use-package format-all
+    :straight t
+    :commands format-all-mode
+    :hook (prog-mode . format-all-mode)
+    :config
+    (add-hook 'before-save-hook (lambda() setq format-all-formatters
+  				'(("Python" (black "-c") (isort))))))
+  (provide 'autoformatter)
+#+END_SRC
+
+*** AI support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/ai.el
+  ;;; ai.el -*- lexical-binding: t; -*-
+
+  (use-package codeium
+    :straight '(:type git :host github :repo "Exafunction/codeium.el")
+    :init (add-to-list 'completion-at-point-functions #'codeium-completion-at-point)
+    :config (setq use-dialog-box nil)
+     (setq codeium-mode-line-enable
+          (lambda (api) (not (memq api '(CancelRequest Heartbeat AcceptCompletion)))))
+     (add-to-list 'mode-line-format '(:eval (car-safe codeium-mode-line)) t)
+     ;; use M-x codeium-diagnose to see apis/fields that would be sent to the local language server
+      (setq codeium-api-enabled
+          (lambda (api)
+              (memq api '(GetCompletions Heartbeat CancelRequest GetAuthToken RegisterUser
+  									   auth-redirect AcceptCompletion))))
+      (defun my-codeium/document/text ()
+          (buffer-substring-no-properties (max (- (point) 3000) (point-min)) (min (+ (point) 1000) (point-max))))
+
+  	(defun my-codeium/document/cursor_offset ()
+          (codeium-utf8-byte-length
+              (buffer-substring-no-properties (max (- (point) 3000) (point-min)) (point))))
+      (setq codeium/document/text 'my-codeium/document/text)
+      (setq codeium/document/cursor_offset 'my-codeium/document/cursor_offset)
+  	(advice-add 'codeium-install :around
+  				(lambda (orig-fn &optional state noconfirm)
+  				  "Modify the installation directory for Codeium."
+  				  (let* ((state (or state codeium-state))
+  						 (default-filename (codeium-get-config 'codeium-command-executable nil state))
+  						 (custom-filename (concat (file-name-as-directory distrib-local-dir) "codeium")))
+  					(cl-letf (((symbol-function 'codeium-get-config)
+  							   (lambda (key &optional default _state)
+  								 (if (eq key 'codeium-command-executable)
+  									 custom-filename
+  								   (funcall #'codeium-get-config key default state))))))
+  					(apply orig-fn (list state noconfirm)))
+  				  ))
+  	)
+  (provide 'ai)
+#+END_SRC
+
+
+*** Debugger support 
+#+BEGIN_SRC emacs-lisp :tangle modules/tools/dist-debug.el
+  ;;; dist-debug.el  -- DAP support module for Light Emacs
+  ;;;  *_ lexical-binding: t; -*-
+
+  (use-package dap-mode 
+    :straight t
+    )
+
+
+  (provide 'dist-debug)
+#+END_SRC
+
+*** Evil-mode support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-evil.el
+  ;;; dist-evil.el -*- lexical-binding: t; -*-
+
+  (use-package evil
+    :straight t
+    :demand t
+    :commands evil-mode
+    :init (setq evil-want-integration t
+  			  evil-want-keybinding nil)
+    :config
+    (evil-mode t)
+    (evil-set-undo-system 'undo-redo)
+    (evil-define-key 'normal eglot-mode-map (kbd "K") 'eldoc--doc-buffer))
+
+  (use-package evil-collection
+    :straight t
+    :after evil
+    :config
+    (setq evil-collection-config *))
+
+  (use-package evil-org-mode
+    :straight t
+    :after evil
+    :hook (evil-org-mode . org))
+
+  (provide 'dist-evil)
+#+END_SRC
+
+*** Editorconfig support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-editorconfig.el
+  ;;; dist-editorconfig.el  -*- lexical-binding=t; -*- 
+
+  (use-package editorconfig
+    :straight t
+    :config
+    (editorconfig-mode 1))
+
+  (provide 'dist-editorconfig)
+#+END_SRC
+
+*** Github codespaces support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-codespaces.el
+  ;;; dist-codespaces.el -*- lexical-binding=t; -*-
+
+  (use-package codespaces
+    :straight t
+    :config
+    (codespaces-setup)
+    :bind
+    ("C-c S" . #'codespaces-connect))
+
+  (provide 'dist-codespaces)
+#+END_SRC
+
+*** Ligature squpport
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/ligature.el
+  ;;; ligature.el -*- lexical-binding: t; -*-
+
+  ;; Enable fira-code-mode as a fallback mode for Emacs with absent harfbuzz
+  (use-package fira-code-mode
+    :straight t)
+
+
+  ;; Setup ligature
+  (use-package ligature
+    :straight (ligature :type git :host github :repo "mickeynp/ligature.el")
+    :config
+    (ligature-set-ligatures 'prog-mode
+  						  '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
+  							":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
+  							"-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
+  							"#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**"
+  							"/=" "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>"
+  							"++" "+++" "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<="
+  							"=<<" "=/=" ">-" ">=" ">=>" ">>" ">>-" ">>=" ">>>" "<*"
+  							"<*>" "<|" "<|>" "<$" "<$>" "<!--" "<-" "<--" "<->" "<+"
+  							"<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-" "<<=" "<<<"
+  							"<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%")))
+
+  (when (display-graphic-p)
+    (if (version<= "28.1" emacs-version)
+  	  (global-ligature-mode 1)
+  	(fira-code-mode 1)))
+
+  (provide 'ligature)
+#+END_SRC
+
+*** LSP support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/langserverprotocol.el
+  ;; langserverprotocol.el -*- lexical-binding: t; -*-
+
+  (use-package lsp-mode
+    :straight t
+    :hook					
+    ;; (python-mode . lsp-deferred)
+    ;; (csharp-mode . lsp-deferred)
+    ;; (c-mode . lsp-deferred)
+    (lsp-mode . lsp-enable-which-key-integration) 
+    :commands (lsp lsp-deferred)
+    :config
+    (setq lsp-session-file (concat distrib-cache-dir "lsp-session-v1")
+  	lsp-idle-delay 0.1
+  	treemacs-space-between-root-nodes nil
+  	company-minimum-prefix-length 1
+  	)
+    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\venv\\'"))
+
+  (use-package lsp-ui
+    :straight t
+    :after lsp-mode
+    :hook (lsp-ui-mode . lsp)
+    (lsp-ui-doc-frame-mode . lsp-ui))
+
+  ;; (use-package lsp-ivy
+  ;;   :straight t
+  ;;   :after lsp-mode
+  ;;   :commands lsp-ivy-workspace-symbol)
+
+  (use-package lsp-treemacs
+    :straight t
+    :after lsp-mode
+    :config (lsp-treemacs-sync-mode 1)
+    :commands lsp-treemacs-errors-list)
+
+  (use-package eglot
+    :hook (prog-mode . eglot-ensure))
+
+  (provide 'langserverprotocol)
+#+END_SRC
+
+*** Org-mode extended support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/orgmode.el
+  ;;; orgmode.el -*- lexical-binding: t; -*-
+
+
+
+  (use-package org
+    :straight t
+    ;; Ensure pandoc backend is added to org before it is loaded
+    :config
+    (setq org-directory "~/Documents/Organize/"
+  	org-agenda-files (concat org-directory "agenda.org")
+  	org-hide-emphasis-markers t)
+    (font-lock-add-keywords 'org-mode
+  			  '(("^ *\\([-]\\) "
+  			     (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+    ;; (let* ((variable-tuple
+    ;; 	     (when (display-graphic-p)
+    ;; 		 (cond
+    ;; 		  ((x-list-fonts "Fira Code") '(:font "Fira Code"))
+    ;; 		  ((x-list-fonts "Iosevka") '(:font "Iosevka"))
+    ;; 		  ((x-list-fonts "Verdana") '(:font "Verdana"))
+    ;; 		  ((x-family-fonts "Sans Serif") '(:family "Sans Serif"))
+    ;; 		  (nil (warn "Can't find a Sans Serif Font. Please install Source Sans Pro.")))))
+    ;; 	    (base-font-color (face-foreground 'default nil 'default))
+    ;; 	    (headline `(:inherit default :weight bold :foreground ,base-font-color)))
+    ;;   (custom-theme-set-faces
+    ;; 	'user
+    ;; 	`(org-level-8 ((t (,@headline ,@variable-tuple))))
+    ;; 	`(org-level-7 ((t (,@headline ,@variable-tuple))))
+    ;; 	`(org-level-6 ((t (,@headline ,@variable-tuple))))
+    ;; 	`(org-level-5 ((t (,@headline ,@variable-tuple))))
+    ;; 	`(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
+    ;; 	`(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
+    ;; 	`(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
+    ;; 	`(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
+    ;; 	`(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))
+    ;; 	))
+    (with-eval-after-load "ox-latex"
+      (add-to-list 'org-latex-classes
+  		 '("koma-book-no-part" "\\documentclass[11pt]{scrbook}"
+  					;		   ("\\part{%s}" . "\\part*{%s}") 
+  		   ("\\chapter{%s}" . "\\chapter*{%s}")
+  		   ("\\section{%s}" . "\\section*{%s}")
+  		   ("\\subsection{%s}" . "\\subsection*{%s}")
+  		   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+  		   ("\\paragraph{%s}" . "\\paragraph*{%s}")
+  		   ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+  		 )
+      (add-to-list 'org-latex-classes
+  		 '("koma-book" "\\documentclass[11pt]{scrbook}"
+  		   ("\\part{%s}" . "\\part*{%s}") 
+  		   ("\\chapter{%s}" . "\\chapter*{%s}")
+  		   ("\\section{%s}" . "\\section*{%s}")
+  		   ("\\subsection{%s}" . "\\subsection*{%s}")
+  		   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+  		   ("\\paragraph{%s}" . "\\paragraph*{%s}")
+  		   ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+  		 ))
+    )
+
+  (use-package ox-pandoc
+    :straight t
+    :after org)
+
+  (use-package org-contrib
+    :straight t
+    :after org)
+
+  ;; (use-package org-bullets
+  ;;   :straight t
+  ;;   :config
+  ;;   (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1))))
+
+  (provide 'orgmode)
+
+#+END_SRC
+*** Snippets
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/snippets.el
+  ;;; yasnippet.el -*- lexical-binding: t; -*-
+
+  (use-package yasnippet
+    :straight t
+
+    :init
+    (setq snippets-dir (expand-file-name "snippets" distrib-local-dir))
+    (setq yas-verbosity 2)
+    (defvar yas-snippet-dirs "")
+    (setq yas-snippet-dirs (list (eval 'snippets-dir)))
+    :hook
+    ((prog-mode . yas-minor-mode)
+     (org-mode . yas-minor-mode))
+    :config
+    (yas-reload-all)
+    :commands (yas-minor-mode-on
+  	     yas-expand
+  	     yas-expand-snippet
+  	     yas-lookup-snippet
+  	     yas-insert-snippet
+  	     yas-new-snippet
+  	     yas-visit-snippet-file
+  	     yas-activate-extra-mode
+  	     yas-maybe-expand-abbrev-key-filter)
+    )
+
+  (use-package yasnippet-snippets
+    :straight t)
+
+
+  (provide 'snippets)
+#+END_SRC
+
+*** Tree-sitter support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/treesitter.el
+  ;;; treesitter.el -*- lexical-binding: t; -*-
+
+  (use-package tree-sitter
+    :straight t
+    :config 
+    (add-hook 'tree-sitter-hook #'tree-sitter-hl-mode)
+    (when (featurep 'web-mode)
+      (add-to-list 'tree-sitter-major-mode-language-alist '(web-mode . html))
+      (add-to-list 'tree-sitter-major-mode-language-alist '(web-mode . css))
+      )
+    )
+
+  (use-package tree-sitter-langs
+    :straight t
+    )
+
+  (provide 'treesitter)
+#+END_SRC
+
+*** Version control
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/version-control.el
+  ;;; version-control.el -*- lexical-binding: t; -*-
+
+  (use-package magit
+    :straight t
+    )
+
+  (use-package forge
+    :straight ;TODO: 
+    :after magit)
+
+  (use-package magit-gh-pulls
+    :straight t
+    :config
+    (add-hook 'magit-mode-hook 'turn-on-magit-gh-pulls))
+
+  (use-package gh
+    :straight t)
+
+  (use-package diff-hl
+    :straight t
+    :config
+    (global-diff-hl-mode))
+
+  (setq transient-history-file (concat distrib-cache-dir "transient/history.el"))
+  (setq forge-database-file (concat distrib-cache-dir "forge-database.sqlite"))
+
+  (provide 'version-control)
+
+#+END_SRC
+
+*** Which-key support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/keymaps-manager.el
+  ;;; keymaps-manager.el -*- lexical-binding: t; -*-
+
+  (use-package which-key
+    :straight t
+    :init
+    (which-key-mode)
+    :config
+    (setq which-key-popup-type 'side-window
+  	which-key-side-window-location 'bottom))
+
+  (provide 'keymaps-manager)
+#+END_SRC
+
+** Programming languages
+
+*** General programming environment setup 
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/progconf.el
+  									;;; progconf.el -*- lexical-binding: t; -*-
+
+  (setq display-line-numbers-type 'relative)
+  (add-hook 'prog-mode-hook
+  	  (if (fboundp 'display-line-numbers-mode)
+  	      #'display-line-numbers-mode
+  	    #'linum-mode))
+
+  (provide 'progconf)
+#+END_SRC
+
+*** HTML/CSS support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/html_css-lang.el
+  ;;; html_css-lang.el -*- lexical-binding: t; -*- 
+
+  (use-package web-mode
+    :straight t
+    :mode
+    (("\\.phtml\\'" . web-mode)
+     ("\\.cshtml\\'" . web-mode)
+     ("\\.tpl\\.php\\'" . web-mode)
+     ("\\.blade\\.php\\'" . web-mode)
+     ("\\.[agj]sp\\'" . web-mode)
+     ("\\.as[cp]x\\'" . web-mode)
+     ("\\.erb\\'" . web-mode)
+     ("\\.mustache\\'" . web-mode)
+     ("\\.djhtml\\'" . web-mode)
+     ("\\.html?\\'" . web-mode)
+     ("\\.css\\'" . web-mode))
+    :hook
+    ((web-mode . lsp-deferred)
+     (web-mode . dap-ui-mode)
+     (web-mode . dap-mode)
+     (web-mode . tree-sitter-mode))
+    :config
+    (set-face-attribute 'web-mode-css-at-rule-face nil :foreground "Pink3")
+    (when (and (featurep 'company) (featurep 'company-web-html) (featurep 'company-css))
+      (add-to-list 'company-backends '(company-css company-web-html)))
+    )
+
+  (use-package emmet-mode
+    :straight t
+    :config
+    (setq emmet-self-closing-tag-style "")
+    (emmet-mode 1)
+    :hook (web-mode))
+
+  (provide 'html_css-lang)
+#+END_SRC
+
+*** Javascript support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/javascript-lang.el
+  ;;; javascript-lang.el -*- lexical-binding: t; -*-
+
+  (use-package js2-mode
+    :straight t
+    :interpreter "node"
+    :mode (("\\.js\\'" . js2-mode))
+    :hook
+    (js2-mode . lsp-deferred)
+    (js2-mode . dap-ui-mode)
+    (js2-mode . dap-mode)
+    (js2-mode . tree-sitter-mode))
+
+  (use-package xref-js2
+    :straight t
+    :after js2-mode
+    :defer t
+    :config
+    (add-hook 'js2-mode-hook (lambda ()
+  			     (add-hook 'xref-backend-functions #'xref-js2-xref-backend))))
+
+  (use-package js2-refactor
+    :straight t
+    :after js2-mode
+    :config
+    (add-hook 'js2-mode-hook js2-refactor-mode))
+
+  (use-package tide
+    :straight t
+    :after (company flycheck company-tide)
+    :hook
+    ((js2-mode . tide-setup)
+     (js2-mode . tide-hl-identifier-mode)
+     (before-save . tide-format-before-save))
+    :config
+    (add-to-list 'company-backends 'company-tide)
+    )
+
+  (provide 'javascript-lang)
+#+END_SRC
+
+*** Lua language support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/lua-lang.el
+  ;;; lua-lang.el -*- lexical-binding: t' -*-
+
+  (use-package lua-mode
+    :straight t
+    :config
+    (add-hook 'lua-mode-hook #'eglot-ensure))
+
+  (provide 'lua-lang)
+#+END_SRC
+
+*** Python language support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/python-lang.el
+  ;;; python-lang.el -*- lexical-binding: t; -*-
+
+  (use-package pyvenv
+    :straight t
+    :config
+    (advice-add 'python-mode :before #'pyvenv-mode))
+
+  (use-package python
+    :hook
+    ((python-mode . lsp-deferred) (python-mode . dap-ui-mode) (python-mode . dap-mode)
+     (python-mode . tree-sitter-mode) (python-mode . fira-code-mode))
+    :config
+    (require 'dap-python)
+    (setq dap-python-debugger 'debugpy)
+    (defun dap-python--pyenv-executable (command)
+      (with-venv (executable-find "python")))
+    (setq python-shell-interpreter "ipython"
+  	python-shell-interpreter-arg "-i --simple-prompt")
+    (add-hook 'dap-stopped-hook
+  	    (lambda (arg) (call-interactively #'dap-hydra)))
+    )
+
+  (use-package with-venv
+    :straight t)
+
+  (use-package lsp-pyright
+    :straight t
+    :hook (python-mode . (lambda () (require 'lsp-pyright)
+  			 (lsp))))
+
+  (provide 'python-lang)
+#+END_SRC
+
+*** C-sharp language support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/csharp-lang.el
+  ;;; c-sharp-lang.el -*- lexical-binding: t; -*-
+
+  (use-package csharp-mode
+    :hook ((csharp-mode . eglot-ensure)
+  		 (csharp-mode . tree-sitter-mode)
+  		 (csharp-mode . fira-code-mode)))
+
+  (provide 'csharp-lang)
+#+END_SRC
+
+*** Tex language support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/tex-lang.el
+  ;;; tex-lang.el -*- lexical-binding: t; -*-
+
+  (use-package auctex
+    :straight t
+    :config
+    (setq TeX-auto-save t)
+    (setq TeX-parse-self t)
+    (setq-default Tex-Master t)
+    (setq reftex-plug-into-AUCTeX t)
+    (add-to-list 'auto-mode-alist '("\\.tex\\'" . LaTeX-mode))
+    (add-hook 'LaTeX-mode-hook #'lsp-mode)
+    (add-hook 'LaTeX-mode-hook #'turn-on-reftex))
+
+  (provide 'tex-lang)
+#+END_SRC
+
+** NETWORK
+** Financial
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/financial/financial.el
+  ;;; financial.el -*- lexical-binding: t; -*-
+
+  (use-package ledger-mode
+    :straight t
+    ;; ledger mode is initially using ledger, you can force ledger-mode to use hledger instead.
+    :config (setq ledger-binary-path 'hledger)
+    :bind ("C-c fl" . ledger-mode))
+
+  (provide 'financial)
+#+END_SRC
+
+(defun distrib-evil-exit-insert ()
+  "Exit evil insert mode when 'jk' key-chord is pressed"
+  (interactive)
+  (let ((event (read-event nil nil 0.3)))
+	(if (and (characterp event) (char-equal event ?k))
+		(evil-normal-state)
+	  (insert "j")
+	  (push event unread-command-events))))
+  
+(define-key evil-insert-state-map (kbd "j") 'distrib-evil-exit-insert)
