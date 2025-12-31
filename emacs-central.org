@@ -32,75 +32,106 @@ Light Emacs distribution core components include the following ones:
 
 ** LMX Initialization
 
-*** Early Init file
+*** Emacs Early Init file
 
 Many of the settings put within this section are put after reading "Elisp
 info>Init file". The aim of the statements is to remove unnecessary programs
 from /emacs initialization/ to boost the latter.
 
-#+BEGIN_SRC emacs-lisp :tangle early-init.el
+#+BEGIN_SRC emacs-lisp :tangle ~/.config/emacs/early-init.el
   ;;; early-init.el -*- lexical-binding: t -*-
 
   ;; Postpone garbage collection till after emacs is initiated
-
   (setq gc-cons-threshold most-positive-fixnum)
-  (startup-redirect-eln-cache (concat user-emacs-directory "/.cache/eln-cache"))
 
-  ;; Boost emacs startup by disabling certain autoloaded variables
+  ;; Distribution default language settings
+  (set-language-environment "utf-8")
+  (set-default-coding-systems 'utf-8)
 
-  (setq inhibit-splash-screen t
-    package-enable-at-startup nil
-    initial-scratch-message nil
-    initial-major-mode #'fundamental-mode
-    frame-inhibit-implied-resize t
-    make-backup-files nil)
-
-  (setq read-process-output-max (* 1024 1024))
-  (setenv "LSP_USE_PLISTS" "true")
-
-  (setq max-lisp-eval-depth 48000)
-
-  (setq-default fill-column 100) ; Set the default fill column to 100
+  ;; Disable package.el initialization at emacs startup
+  (setq package-enable-at-startup nil)
   (advice-add #'package--ensure-init-file :override #'ignore)
 
-  ;; Add the core directory to load-path
+  ;; Set the emacs distribution project variable defaults
+  ;; These are defined here to ease the process loading lmx distributin lisp codebase
+  (defconst emacs-distrib-proj-root (expand-file-name "lmx" "~/Documents/Projects")
+    "Lmx emacs distribution project root")
+  (defconst distrib-lisp-code-dir (expand-file-name "lisp" emacs-distrib-proj-root)
+    "Lmx emacs lisp codebase directory")
 
-  (add-to-list 'load-path (concat user-emacs-directory "core/"))
+  ;; Set the eln-cache path
+  ;; The purpose of this sexp is to burry the eln-cache inside a .cache within the proj root dir
+  (startup-redirect-eln-cache (file-name-as-directory
+    			     (expand-file-name ".cache/eln-cache" emacs-distrib-proj-root)))
+  (setq native-comp-deferred-compilation nil)
 
-  (require 'distrib)
+  ;; Always prefer newer .el files over .elc
+  (setq load-prefer-newer t)
 
+  ;; Add the distribution lisp codebase to load-path
+  (let ((default-directory (eval distrib-lisp-code-dir)))
+    (normal-top-level-add-subdirs-to-load-path))
+  ;; (add-to-list 'load-path (expand-file-name "lisp/core" emacs-distrib-proj-root))
+  ;; Load the distribution lisp codebase
+  (require 'distrib-lib)
 
-  ;; Disable menus, toolbar and scroll-bar
-
-  ;; Remember that nil, () and 0 are alike as boolean FALSE is passed as an
-  ;; argument to a function
-
+  ;; Disable menu-bar explicitly. Disable tool-bar-mode and scroll-bar-mode when these
+  ;; features exist in emacs.
   (menu-bar-mode 0)
-
-  ;; On some environments emacs is not built with all features, therefore the
-  ;; "(when (fbooundp `feature)) is used and the setting follows the true
-  ;; value.
-
   (when (fboundp 'tool-bar-mode)
     (tool-bar-mode 0))
-
   (when (fboundp 'scroll-bar-mode)
     (scroll-bar-mode 0))
+  (setq frame-inhibit-implied-resize t)
 
-#+END_SRC
+  ;; Disable the splashnnn screen, Set the initial major mode, clear the scratch buffer message.
+  (setq inhibit-splash-screen t
+        initial-scratch-message nil
+        initial-major-mode #'fundamental-mode)
+
+  ;; Performance tuning variables and environment variables that enhance lsp-mode functionality
+  (setq read-process-output-max (* 1024 1024))
+  (setenv "LSP_USE_PLISTS" "true")
+  (setq max-lisp-eval-depth 48000)
+
+  #+END_SRC
 
 *** Emacs Init file
 
-#+BEGIN_SRC emacs-lisp :tangle init.el
+#+BEGIN_SRC emacs-lisp :tangle ~/.config/emacs/init.el
+  ;;; init.el -*- lexical-binding: t; -*-
+
+  ;; Load essential distribution libraries
+  (require 'distrib)
+  (require 'distrib-ui)
+  (require 'distrib-packagers)
+
+  ;; Default emacs user enhancements
+  (setq make-backup-files nil)
+  (global-auto-revert-mode t) ; Sync file buffers with disk file changes
+  (fset 'yes-or-no-p 'y-or-n-p)	; Set default 'yes or no' prompt to a short form
+  (setq-default auto-fill-function 'do-auto-fill)
+  (setq-default tab-width 4)
+  (setq-default fill-column 100) ; Set the default fill column to 100
+  (show-paren-mode t)
+  (electric-pair-mode t) ; Enable automatic parens completion at startup
+  (column-number-mode t) ; Show column number
+
+  ;; Personal information
+  (setq user-full-name "Hassan Abdin"
+        user-mail-address "habdin@gmail.com")
+  (global-hl-line-mode t)
+
+  ;; Load preferred distrubtion modules
   (require 'modeline)
   (require 'themes)
   (require 'version-control)
+  (require 'dist-evil)
   (require 'snippets)
   (require 'completions)
   (require 'ligature)
   (require 'progconf)
   (require 'orgmode)
-  (require 'dist-evil)
   (require 'dist-editorconfig)
   (require 'dist-codespaces)
   (require 'keymaps-manager)
@@ -117,65 +148,52 @@ from /emacs initialization/ to boost the latter.
   (require 'ai)
   (require 'financial)
 
-  ;; Personal information
-  (setq user-full-name "Hassan Abdin"
-  	  user-mail-address "habdin@gmail.com")
-
-  (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
-  (add-hook 'after-init-hook (lambda ()
-  							 (set-face-attribute 'default nil :font "Iosevka" :height 120)))
+  ;; Load user ui settings
+  (add-hook 'after-init-hook
+  		  (lambda ()
+  			(set-face-attribute 'default nil :font "Iosevka" :height 120)))
   (lmx-load-theme 'doom-tokyo-night)		; Set the theme
-  (global-auto-revert-mode t) ; Sync file buffers with disk file changes
-  (global-ligature-mode)
-  (fset 'yes-or-no-p 'y-or-n-p)	; Set default 'yes or no' prompt to a short form
-  (setq-default auto-fill-function 'do-auto-fill)
-  (setq-default tab-width 4)
 
+
+  ;; (use-package gcmh
+  ;;   :straight t
+  ;;   :init
+  ;;   (setq gcmh-idle-delay 5
+  ;;   		gcmh-high-cons-threshold most-positive-fixnum
+  ;;   		gcmh-low-cons.thresold 16777216)
+  ;;   :config (gcmh-mode 1))
 #+END_SRC
 
 *** Distribution specific files
 **** Main Distribution file
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib.el
   ;;; distrib.el -*- lexical-binding: t ; -*-
 
-  (require 'distrib-ui)
   (require 'distrib-lib)
-  (require 'distrib-packagers)
 
-  ;; Setting defaults directories for different emacs packages
-
-  (setq bookmark-default-file (concat distrib-cache-dir "bookmarks")
-    package-user-dir (concat distrib-local-dir "elpa/")
-    auto-save-list-file-prefix (cond ((eq (system-name) 'ms-dos)
-  				    (concat
-  				     distrib-cache-dir "auto-save.list/_s"))
-  				   (t
-  				    (concat
-  				     distrib-cache-dir "auto-save-list/.saves-"))))
-
-  (let ((default-directory (eval distrib-modules-dir)))
-    (normal-top-level-add-subdirs-to-load-path))
-
-  ;; (add-to-list 'native-comp-eln-load-path (concat distrib-cache-dir "eln-cache/"))
-  (setq native-compile-target-directory (concat distrib-cache-dir "eln-cache"))
+  ;; Load custom-file after early-init.el.
+  ;; This package will be included initially within init.el
   (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
   (load custom-file)
+  (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
+  ;; Setting defaults directories for different emacs packages
 
-  ;; Distribution defaults
 
-  (set-language-environment "utf-8")
-  (set-default-coding-systems 'utf-8)
-
-  (show-paren-mode t)
-  (electric-pair-mode t) ; Enable automatic parens completion at startup
-  (column-number-mode t) ; Show column number
+  (setq bookmark-default-file (expand-file-name "bookmarks/" distrib-cache-dir)
+  	  package-user-dir (expand-file-name "elpa" distrib-local-dir)
+  	  auto-save-list-file-prefix
+  	  (cond ((eq (system-name) 'ms-dos)
+  			 (expand-file-name "auto-save.list/_s" distrib-cache-dir))
+  			(t
+  			 (expand-file-name "auto-save-list/.saves-" distrib-cache-dir))))
 
   (use-package recentf
     :config
     (run-at-time nil (* 60 60) 'recentf-save-list)
+    (recentf-mode)
     :custom
-    (recentf-save-file (concat distrib-cache-dir "recentf") "File to save the recent list into.")
+    (recentf-save-file (expand-file-name "recentf" distrib-cache-dir) "File to save the recent list into.")
     (recentf-max-saved-items 1000 "Maximum number of items of the recent list that will be
   saved.")
     (recentf-auto-cleanup 'never "Define when to automatically cleanup the recent list.")
@@ -184,27 +202,15 @@ from /emacs initialization/ to boost the latter.
   (use-package whitespace
     :custom
     (whitespace-action 'auto-cleanup "Specify which action is taken when a buffer is visited or
-    written.")
+    written.") 
     (whitespace-line-column 10000))
 
   (use-package eshell
     :custom
-    (eshell-directory-name (concat distrib-cache-dir "eshell")))
-
-  (use-package project
-    :custom
-    (project-list-file (concat distrib-cache-dir "projects")))
+    (eshell-directory-name (expand-file-name "eshell" distrib-cache-dir)))
 
   (use-package url
-    :custom (url-configuration-directory (concat distrib-cache-dir "url")))
-
-  (use-package gcmh
-    :straight t
-    :init
-    (setq gcmh-idle-delay 5
-  		gcmh-high-cons-threshold most-positive-fixnum
-  		gcmh-low-cons.thresold 16777216)
-    :config (gcmh-mode 1))
+    :custom (url-configuration-directory (expand-file-name "url" distrib-cache-dir)))
 
   (provide 'distrib)
 #+END_SRC
@@ -214,7 +220,7 @@ from /emacs initialization/ to boost the latter.
 The file is concerned with setting defaults for user interface for the whole
 distribution.
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-ui.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-ui.el
   ;;; distrib-ui.el -*- lexical-binding: t ; -*-
 
   ;; =========================
@@ -241,8 +247,6 @@ distribution.
   					 (abbreviate-file-name proj-dir))
   				 (abbreviate-file-name default-directory)))))
 
-  (global-hl-line-mode t)
-
   (provide 'distrib-ui)
 #+END_SRC
 
@@ -251,11 +255,12 @@ distribution.
 The file within this section provides a library of variables and functions that govern the behaviour
 of the distribution.
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-lib.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-lib.el
   ;;; distrib-lib.el -*- lexical-binding: t; -*-
 
-  ;; This package provides variables and functions for
-  ;; the emacs distribution
+  ;; Provides variables and functions for the emacs distribution
+  ;; The relevant variables are not used anywhere in the codebase so they were commented out.
+
 
   ;; Set default directory locations
   (defgroup distribution nil
@@ -267,33 +272,35 @@ of the distribution.
     :type 'string
     :group 'distribution)
 
-  (defcustom distrib-core-dir (concat user-emacs-directory "core/")
-    "Default distribution core directory"
-    :type 'string
-    :group 'distribution)
-  
-  (defcustom distrib-cache-dir (concat user-emacs-directory ".cache/")
+  ;; Commented out since its use within the codebase is eliminated
+  ;; (defcustom distrib-core-dir (expand-file-name "core/" distrib-lisp-code-dir)
+  ;;   "Default distribution core directory"
+  ;;   :type 'string
+  ;;   :group 'distribution)
+
+  (defcustom distrib-cache-dir (expand-file-name ".cache/" user-emacs-directory)
     "Default distribution cache directory"
     :type 'string
     :group 'distribution)
 
-  (defcustom distrib-local-dir (concat user-emacs-directory ".local/")
+  (defcustom distrib-local-dir (expand-file-name ".local/" emacs-distrib-proj-root)
     "Distribution default local directory"
     :type 'string
     :group 'distribution)
 
-  (defcustom distrib-modules-dir (concat user-emacs-directory "modules/")
-    "Distribution default modules directory"
-    :type 'string
-    :group 'distribution)
+  ;; Commented out since its use within the codebase is eliminated
+  ;; (defcustom distrib-modules-dir (expand-file-name "lisp/modules/" emacs-distrib-proj-root)
+  ;;   "Distribution default modules directory"
+  ;;   :type 'string
+  ;;   :group 'distribution)
 
   (defun lmx-load-theme (theme)
     "Load downloaded theme."
     (interactive
      (list
       (intern (completing-read "Load custom theme: "
-			     (mapcar #'symbol-name
-				     (custom-available-themes))))))
+  			     (mapcar #'symbol-name
+  				     (custom-available-themes))))))
     (load-theme theme t))
 
   (provide 'distrib-lib)
@@ -305,44 +312,64 @@ of the distribution.
 The package management dependency file configures the *package installer*,
 and other package list software.
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle core/distrib-packagers.el
-  ;;; distrib-packagers.el -*- lexical-binding: t; =*-
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-packagers.el
+  ;;; distrib-packagers.el -*- lexical-binding: t; -*-
+
+  (require 'distrib-lib)
 
   ;; Initialize Straight package manager
   (setq straight-base-dir distrib-local-dir
-	straight-repository-branch "develop"
-	straight-cache-autoloads t
-	straight-check-for-modifications nil
-	straight-enable-package-integration nil
-	straight-vc-git-default-clone-depth 1
-	autoload-compute-prefixes nil
-	straight-use-package-by-default t)
+  	straight-repository-branch "develop"
+  	straight-cache-autoloads t
+  	straight-check-for-modifications nil
+  	straight-enable-package-integration nil
+  	straight-vc-git-default-clone-depth 1
+  	autoload-compute-prefixes nil
+  	straight-use-package-by-default t)
 
   (defvar bootstrap-version)
+  (setq straight-built-in-pseudo-packages '(project python))
   (let ((bootstrap-file
-	 (expand-file-name "straight/repos/straight.el/bootstrap.el" distrib-local-dir))
-	(bootstrap-version 5))
+  	 (expand-file-name "straight/repos/straight.el/bootstrap.el" distrib-local-dir))
+  	(bootstrap-version 5))
     (unless (file-exists-p bootstrap-file)
       (with-current-buffer
-	(url-retrieve-synchronously
-	 "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-	 'silent 'inhibit-cookies)
-	(goto-char (point-max))
-	(eval-print-last-sexp)))
+  	(url-retrieve-synchronously
+  	 "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+  	 'silent 'inhibit-cookies)
+  	(goto-char (point-max))
+  	(eval-print-last-sexp)))
     (load bootstrap-file nil 'nomessage))
 
-  ;; Install use-package
-  (straight-use-package 'use-package)
+  ;; Install use-package in emacs version prior to 29.1
+  (when (version< emacs-version "29.1")
+    (straight-use-package 'use-package)
+    (require 'use-package))
 
+  ;; Set use-package macro to always use defer.
+  ;; Note that whenever you need to ensure you should explicitly add it for any relevant package.
   (use-package use-package
     :init
     (setq use-package-always-defer t))
+
+  ;; Configure Package
+
+  (use-package package
+    :config
+    (setq package-user-dir (expand-file-name "elpa" distrib-local-dir)
+  	package-gnupghome-dir (expand-file-name "gpg" package-user-dir))
+    (add-to-list 'package-archives
+  	       '("gnu" . "https://elpa.gnu.org/packages/") t)
+    (add-to-list 'package-archives
+  	       '("melpa" . "https://melpa.org/packages/") t)
+    (add-to-list 'package-archives
+  	       '("org" . "https://orgmode.org/elpa/") t))
 
   ;; Install Paradox for browsing packages
   (use-package paradox
     :straight t
     :config
-    (setq paradox-github-token (concat user-emacs-directory "paradox-token")))
+    (setq paradox-github-token (expand-file-name "paradox-token" user-emacs-directory)))
 
 
   ;; Install diminish and delight for use with use-package when needed.
@@ -354,25 +381,12 @@ and other package list software.
     :straight t
     )
 
-  ;; Configure Package
-
-  (use-package package
-    :config
-    (setq package-enable-at-startup nil)
-    (setq package-user-dir (concat distrib-local-dir "elpa/")
-	package-gnupghome-dir (expand-file-name "gpg" package-user-dir))
-    (add-to-list 'package-archives
-	       '("gnu" . "https://elpa.gnu.org/packages/") t)
-    (add-to-list 'package-archives`
-	       '("melpa" . "http://melpa.org/packages/") t)
-    (add-to-list 'package-archives
-	       '("org" . "http://orgmode.org/elpa/") t))
 
   ;; Install epkg to view packages in Emacsmirror
   (use-package epkg
     :straight t
     :config
-    (setq epkg-repository (expand-file-name "epkgs/" distrib-local-dir)))
+    (setq epkg-repository (expand-file-name "epkgs" distrib-local-dir)))
 
   (provide 'distrib-packagers)
 #+END_SRC
@@ -386,7 +400,7 @@ module directory.
 ** UI
 *** Modeline
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/ui/modeline.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/ui/modeline.el
   ;;; modeline.el -*- lexical-binding: t; -*-
 
   (defun fix-doom-modeline (frame)
@@ -413,7 +427,7 @@ module directory.
 
 *** Themes
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/ui/themes.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/ui/themes.el
   ;;; themes.el -*- lexical-binding: t ; -*-
 
   (use-package doom-themes
@@ -436,8 +450,8 @@ module directory.
 ** Tools
 *** Autocompletion support
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/completions.el
-  ;;; completions.el -*- lexical-binding = t; -*-
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/completions.el
+  ;;; completions.el -*- lexical-binding: t; -*-
 
   (use-package vertico
     :straight t
@@ -626,14 +640,14 @@ module directory.
 
   ;; (use-package ivy-rich
   ;;   :straight t
-  ;;   
+  ;;
   ;;   :after ivy counsel
   ;;   :init
   ;;   (ivy-rich-mode))
 
   ;; (use-package all-the-icons-ivy-rich
   ;;   :straight t
-  ;;   
+  ;;
   ;;   :after ivy ivy-rich counsel
   ;;   :init (all-the-icons-ivy-rich-mode)
   ;;   :config
@@ -688,8 +702,8 @@ module directory.
 #+END_SRC
 
 *** Autoformat support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/autoformatter.el
-  ;;; autoformatter.el -*- lexical-binding: t; -*- 
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/autoformatter.el
+  ;;; autoformatter.el -*- lexical-binding: t; -*-
 
   (use-package format-all
     :straight t
@@ -702,7 +716,7 @@ module directory.
 #+END_SRC
 
 *** AI support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/ai.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/ai.el
   ;;; ai.el -*- lexical-binding: t; -*-
 
   (use-package codeium
@@ -725,69 +739,62 @@ module directory.
               (buffer-substring-no-properties (max (- (point) 3000) (point-min)) (point))))
       (setq codeium/document/text 'my-codeium/document/text)
       (setq codeium/document/cursor_offset 'my-codeium/document/cursor_offset)
-  	(advice-add 'codeium-install :around
-  				(lambda (orig-fn &optional state noconfirm)
-  				  "Modify the installation directory for Codeium."
-  				  (let* ((state (or state codeium-state))
-  						 (default-filename (codeium-get-config 'codeium-command-executable nil state))
-  						 (custom-filename (concat (file-name-as-directory distrib-local-dir) "codeium")))
-  					(cl-letf (((symbol-function 'codeium-get-config)
-  							   (lambda (key &optional default _state)
-  								 (if (eq key 'codeium-command-executable)
-  									 custom-filename
-  								   (funcall #'codeium-get-config key default state))))))
-  					(apply orig-fn (list state noconfirm)))
-  				  ))
+  	(setq codeium-command-executable
+  		  (expand-file-name
+  		   (pcase system-type
+  			 ('windows-nt "codeium_language_server.exe")
+  			 (_ "codeium_language_server"))
+  		   (expand-file-name ".cache/codeium" emacs-distrib-proj-root )))
   	)
   (provide 'ai)
 #+END_SRC
 
 
-*** Debugger support 
-#+BEGIN_SRC emacs-lisp :tangle modules/tools/dist-debug.el
-  ;;; dist-debug.el  -- DAP support module for Light Emacs
-  ;;;  *_ lexical-binding: t; -*-
+*** Debugger support
+#+BEGIN_SRC emacs-lisp :tangle lisp/modules/tools/dist-debug.el
+  ;;; dist-debug.el  -- DAP support module for Light Emacs  -*- lexical-binding: t; -*-
 
-  (use-package dap-mode 
+  (use-package dap-mode
     :straight t
     )
-
 
   (provide 'dist-debug)
 #+END_SRC
 
 *** Evil-mode support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-evil.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/dist-evil.el
   ;;; dist-evil.el -*- lexical-binding: t; -*-
 
   (use-package evil
     :straight t
-    :demand t
     :commands evil-mode
     :init (setq evil-want-integration t
   			  evil-want-keybinding nil)
     :config
-    (evil-mode t)
     (evil-set-undo-system 'undo-redo)
-    (evil-define-key 'normal eglot-mode-map (kbd "K") 'eldoc--doc-buffer))
+    (evil-define-key 'normal eglot-mode-map (kbd "K") 'eldoc-doc-buffer)
+    (dolist (mode '(Info-mode
+  				help-mode
+  				dired-mode
+  				eww-mode
+  				Buffer-menu-mode))
+    (evil-set-initial-state mode 'emacs)))
 
   (use-package evil-collection
     :straight t
     :after evil
     :config
-    (setq evil-collection-config *))
+    (evil-collection-init))
 
-  (use-package evil-org-mode
-    :straight t
-    :after evil
-    :hook (evil-org-mode . org))
+  (evil-mode 1)
 
   (provide 'dist-evil)
 #+END_SRC
 
 *** Editorconfig support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-editorconfig.el
-  ;;; dist-editorconfig.el  -*- lexical-binding=t; -*- 
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/dist-editorconfig.el
+  ;;; dist-editorconfig.el  -*- lexical-binding: t; -*-
 
   (use-package editorconfig
     :straight t
@@ -798,8 +805,8 @@ module directory.
 #+END_SRC
 
 *** Github codespaces support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/dist-codespaces.el
-  ;;; dist-codespaces.el -*- lexical-binding=t; -*-
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/dist-codespaces.el
+  ;;; dist-codespaces.el -*- lexical-binding: t; -*-
 
   (use-package codespaces
     :straight t
@@ -812,7 +819,7 @@ module directory.
 #+END_SRC
 
 *** Ligature squpport
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/ligature.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/ligature.el
   ;;; ligature.el -*- lexical-binding: t; -*-
 
   ;; Enable fira-code-mode as a fallback mode for Emacs with absent harfbuzz
@@ -845,16 +852,16 @@ module directory.
 #+END_SRC
 
 *** LSP support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/langserverprotocol.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/langserverprotocol.el
   ;; langserverprotocol.el -*- lexical-binding: t; -*-
 
   (use-package lsp-mode
     :straight t
-    :hook					
+    :hook
     ;; (python-mode . lsp-deferred)
     ;; (csharp-mode . lsp-deferred)
     ;; (c-mode . lsp-deferred)
-    (lsp-mode . lsp-enable-which-key-integration) 
+    (lsp-mode . lsp-enable-which-key-integration)
     :commands (lsp lsp-deferred)
     :config
     (setq lsp-session-file (concat distrib-cache-dir "lsp-session-v1")
@@ -863,6 +870,12 @@ module directory.
   	company-minimum-prefix-length 1
   	)
     (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\venv\\'"))
+
+  (use-package eglot
+    :straight (eglot :type built-in :pin nil)
+    :config
+       (add-to-list 'eglot-server-programs '((web-mode) . ("omnisharp" "--languageserver" "hostPID" (number-to-string (process-id)))))
+   )
 
   (use-package lsp-ui
     :straight t
@@ -882,19 +895,18 @@ module directory.
     :commands lsp-treemacs-errors-list)
 
   (use-package eglot
-    :hook (prog-mode . eglot-ensure))
+    :hook (prog-mode . eglot-ensure)
+  )
 
   (provide 'langserverprotocol)
 #+END_SRC
 
 *** Org-mode extended support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/orgmode.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/orgmode.el
   ;;; orgmode.el -*- lexical-binding: t; -*-
 
-
-
   (use-package org
-    :straight t
+    :straight (org :type built-in :pin nil)
     ;; Ensure pandoc backend is added to org before it is loaded
     :config
     (setq org-directory "~/Documents/Organize/"
@@ -928,7 +940,7 @@ module directory.
     (with-eval-after-load "ox-latex"
       (add-to-list 'org-latex-classes
   		 '("koma-book-no-part" "\\documentclass[11pt]{scrbook}"
-  					;		   ("\\part{%s}" . "\\part*{%s}") 
+  					;		   ("\\part{%s}" . "\\part*{%s}")
   		   ("\\chapter{%s}" . "\\chapter*{%s}")
   		   ("\\section{%s}" . "\\section*{%s}")
   		   ("\\subsection{%s}" . "\\subsection*{%s}")
@@ -938,7 +950,7 @@ module directory.
   		 )
       (add-to-list 'org-latex-classes
   		 '("koma-book" "\\documentclass[11pt]{scrbook}"
-  		   ("\\part{%s}" . "\\part*{%s}") 
+  		   ("\\part{%s}" . "\\part*{%s}")
   		   ("\\chapter{%s}" . "\\chapter*{%s}")
   		   ("\\section{%s}" . "\\section*{%s}")
   		   ("\\subsection{%s}" . "\\subsection*{%s}")
@@ -950,10 +962,16 @@ module directory.
 
   (use-package ox-pandoc
     :straight t
-    :after org)
+    :after ox
+    :init (add-to-list 'org-export-backends 'pandoc))
+
+  (use-package ox-typst
+    :straight t
+    :after ox
+    :init (add-to-list 'org-export-backends 'typst))
 
   (use-package org-contrib
-    :straight t
+    :straight (org-contrib :type git :host github :repo "emacsmirror/org-contrib")
     :after org)
 
   ;; (use-package org-bullets
@@ -966,7 +984,7 @@ module directory.
 #+END_SRC
 *** Snippets
 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/snippets.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/snippets.el
   ;;; yasnippet.el -*- lexical-binding: t; -*-
 
   (use-package yasnippet
@@ -1001,12 +1019,12 @@ module directory.
 #+END_SRC
 
 *** Tree-sitter support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/treesitter.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/treesitter.el
   ;;; treesitter.el -*- lexical-binding: t; -*-
 
   (use-package tree-sitter
     :straight t
-    :config 
+    :config
     (add-hook 'tree-sitter-hook #'tree-sitter-hl-mode)
     (when (featurep 'web-mode)
       (add-to-list 'tree-sitter-major-mode-language-alist '(web-mode . html))
@@ -1022,7 +1040,7 @@ module directory.
 #+END_SRC
 
 *** Version control
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/version-control.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/version-control.el
   ;;; version-control.el -*- lexical-binding: t; -*-
 
   (use-package magit
@@ -1030,7 +1048,7 @@ module directory.
     )
 
   (use-package forge
-    :straight ;TODO: 
+    :straight ;TODO:
     :after magit)
 
   (use-package magit-gh-pulls
@@ -1054,11 +1072,11 @@ module directory.
 #+END_SRC
 
 *** Which-key support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/keymaps-manager.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/keymaps-manager.el
   ;;; keymaps-manager.el -*- lexical-binding: t; -*-
 
   (use-package which-key
-    :straight t
+    :straight (which-key :type built-in :pin nil)
     :init
     (which-key-mode)
     :config
@@ -1070,9 +1088,9 @@ module directory.
 
 ** Programming languages
 
-*** General programming environment setup 
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/progconf.el
-  									;;; progconf.el -*- lexical-binding: t; -*-
+*** General programming environment setup
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/progconf.el
+  ;;; progconf.el -*- lexical-binding: t; -*-
 
   (setq display-line-numbers-type 'relative)
   (add-hook 'prog-mode-hook
@@ -1080,12 +1098,36 @@ module directory.
   	      #'display-line-numbers-mode
   	    #'linum-mode))
 
+  (use-package project
+    :ensure nil
+    :custom
+    (project-list-file (expand-file-name "projects" distrib-cache-dir)))
+
+
   (provide 'progconf)
 #+END_SRC
 
 *** HTML/CSS support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/tools/html_css-lang.el
-  ;;; html_css-lang.el -*- lexical-binding: t; -*- 
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/html_css-lang.el
+  ;;; html_css-lang.el -*- lexical-binding: t; -*-
+
+  (defun remove-unnecessary-webmode-faces
+  	(&rest _)
+    """Remove uncessary faces from web-mode"""
+    (dolist (face '(web-mode-html-tag-face
+  				  web-mode-html-attr-name-face
+  				  web-mode-html-attr-value-face
+  				  web-mode-comment-face
+  				  web-mode-doctype-face
+  				  web-mode-block-face
+  				  web-mode-block-control-face
+  				  web-mode-variable-name-face
+  				  web-mode-keyword-face
+  				  web-mode-string-face
+  				  web-mode-html-text-face
+  				  web-mode-normal-face))
+  	(when (facep face)
+  	  (set-face-attribute face nil :background nil))))
 
   (use-package web-mode
     :straight t
@@ -1096,21 +1138,31 @@ module directory.
      ("\\.blade\\.php\\'" . web-mode)
      ("\\.[agj]sp\\'" . web-mode)
      ("\\.as[cp]x\\'" . web-mode)
+     ("\\.razor\\'" . web-mode)
      ("\\.erb\\'" . web-mode)
      ("\\.mustache\\'" . web-mode)
      ("\\.djhtml\\'" . web-mode)
      ("\\.html?\\'" . web-mode)
      ("\\.css\\'" . web-mode))
     :hook
-    ((web-mode . lsp-deferred)
+    ((web-mode . eglot-ensure)
      (web-mode . dap-ui-mode)
      (web-mode . dap-mode)
-     (web-mode . tree-sitter-mode))
+     (web-mode . tree-sitter-mode)
+     (web-mode . remove-unnecessary-webmode-faces)
+     )
     :config
     (set-face-attribute 'web-mode-css-at-rule-face nil :foreground "Pink3")
     (when (and (featurep 'company) (featurep 'company-web-html) (featurep 'company-css))
-      (add-to-list 'company-backends '(company-css company-web-html)))
-    )
+  	(add-to-list 'company-backends '(company-css company-web-html)))
+    ;; Disable background for certain faces
+    (add-hook 'enable-theme-functions
+  			'remove-unnecessary-webmode-faces)
+    ;; Disable extra highlighting features
+    (setq web-mode-enable-current-element-highlight nil
+          web-mode-enable-current-column-highlight nil
+          web-mode-enable-block-face nil
+          web-mode-enable-part-face nil))
 
   (use-package emmet-mode
     :straight t
@@ -1123,7 +1175,7 @@ module directory.
 #+END_SRC
 
 *** Javascript support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/javascript-lang.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/javascript-lang.el
   ;;; javascript-lang.el -*- lexical-binding: t; -*-
 
   (use-package js2-mode
@@ -1165,7 +1217,7 @@ module directory.
 #+END_SRC
 
 *** Lua language support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/lua-lang.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/lua-lang.el
   ;;; lua-lang.el -*- lexical-binding: t' -*-
 
   (use-package lua-mode
@@ -1177,7 +1229,7 @@ module directory.
 #+END_SRC
 
 *** Python language support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/python-lang.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/python-lang.el
   ;;; python-lang.el -*- lexical-binding: t; -*-
 
   (use-package pyvenv
@@ -1212,10 +1264,11 @@ module directory.
 #+END_SRC
 
 *** C-sharp language support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/csharp-lang.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/csharp-lang.el
   ;;; c-sharp-lang.el -*- lexical-binding: t; -*-
 
   (use-package csharp-mode
+    :straight (csharp-mode :type built-in :pin nil)
     :hook ((csharp-mode . eglot-ensure)
   		 (csharp-mode . tree-sitter-mode)
   		 (csharp-mode . fira-code-mode)))
@@ -1224,7 +1277,7 @@ module directory.
 #+END_SRC
 
 *** Tex language support
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/lang/tex-lang.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/tex-lang.el
   ;;; tex-lang.el -*- lexical-binding: t; -*-
 
   (use-package auctex
@@ -1243,7 +1296,7 @@ module directory.
 
 ** NETWORK
 ** Financial
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle modules/financial/financial.el
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/financial/financial.el
   ;;; financial.el -*- lexical-binding: t; -*-
 
   (use-package ledger-mode
@@ -1263,5 +1316,5 @@ module directory.
 		(evil-normal-state)
 	  (insert "j")
 	  (push event unread-command-events))))
-  
+
 (define-key evil-insert-state-map (kbd "j") 'distrib-evil-exit-insert)

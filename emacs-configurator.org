@@ -1,0 +1,123 @@
+* Purpose
+
+The responsibility of this file is to be a repository for the Emacs configurator design ideas. The
+Emacs configurator Tool will be the name I have chose for my emacs EIEIO-based configuration tool.
+
+* Emacs Configurator Design ideas
+
+This is an "*inside-out*" design for Emacs configuration. It simulates how human are created and is a
+very logical way to create a system with proper non-overlapping responsibilities but the outer
+depends on the functionality of the inner.
+
+** Layer 1: Basal layer
+# :PROPERTIES:
+# :CUSTOM_ID: Layer_1
+# :END:
+*** Responsibility:
++ Define default paths:
+  + The suggested default paths naming convention should differ from the defcustom-based variables
+  previously defined in non-EIEIO lmx configuration.
+  + These names convention are better to be non-configurable from the user/developer. In other words
+    the class should behave like a static class.
++ Detect environment defaults:
+  + $PATH
+  + The underlying OS.
++ Defines a checklist for system tools. Classify them as mandatory vs optional. Logs the deficiency
+  of both mandatory and optional system tools in Layer 1 state. The upper layers consume this state. 
++ Has a refresh method to refresh the state of the read-only state via calls from the Observer.
++ Expose a read-only introspection API responsible for the *state* of the environmental variables and
+  the underlying OS. The state of Environment variables for the following purposes:
+  + Detecting environment changes.
+  + Making behavioural changes depending on the Env or the OS.
+  + Important for observability.
+*** Advantages:
+Eliminate the need of a separate configurator directory and a project directory. Now they can
+co-exist, since no sandbox for experimentation would be needed.
+*** Implementation:
+Postponed yet it will provide the methodology of implementing the features and task list for feature
+implementation.
+
+** Layer 2: Package management layer
+# :PROPERTIES:
+# :CUSTOM_ID: Layer_2
+# :END:
+*** Responsibility:
++ Be aware of different package management available
+  (Possibly through featurep 'package-manager + list of package-managers)
++ Defines a default package manager
++ Describe how the package manager
+  + /Gets Installed/ if not built-in.
+  + /Disable builtins/ at emacs load when built-in.
+  + /Sets defaults/ for disabled package manager installations based on the Layer 1.
+  + /Be disabled/ if you choose another package manager.
+  + /Gets Removed/ if totally unneeded.
++ Receives default installation path from Layer 1.
++ By design the implementation should allow inheritance to allow the presence of a list and choosing
+  the manager from it or remove a manager completely from it.
++ Declare ownership of package state.
++ Provide a read-only API for the state of packages for Observability features.
+*** Advantages:
+Offers choice of package manager for the user. 
+*** Implementation:
+Postponed yet it will provide the methodology of implementing the features and task list for feature
+implementation.
+
+** Layer 3: Package/Module configuration layer
+*** Responsibility:
++ Be aware of manually packages present in a load-path set manually by the user.
++ Package or Module should declare:
+  + /Dependencies/ which can be passed to Layer 2 for installation or removal. This is crucial for
+    module/package clean-ups as well. The dependency tree may obviate the need for the :after
+    directive present in use-package. A possible /order slot/ can be added instead.
+  + /Sets preload/ conditions for package.
+  + /Sets keybindings/ for module/package (Remember that a module can be a set of packages providing a
+    certain feature).
+  + /Sets autoloads/ for lazy loading.
+  + Provides /method wrappers/ for custom themes or ui elements tweaking
+  + Provide a mechanism for unloading or self-disabling.
++ Receives:
+  + Paths defaults from Layer 1
+  + Package Manager defaults from Layer 2
+  + User decision or configuration from Layer 4
+*** Advantages:
+Distribution agnostic, wrapper for layer 2. 
+*** Implementation:
+Postponed yet it will provide the methodology of implementing the features and task list for feature
+implementation.
+
+** Layer 4: Top Layer
+This is the Userland layer. It is where everything gets wrapped. It affects layer 2 and 3 but never
+layer 1.
+*** Responsibility:
++ Provide a tool for setting the distribution name for distribution developers to use.
++ Provide a modules/package lists for installation.
++ Halts installation if a tool required for installation or configuration is deficient.
++ Notifies the user or developer on deficient tools for further user interference.
++ Provides a place for user to configure personal variables, environmental variables.
+*** Implementation:
+Postponed yet it will provide the methodology of implementing the features and task list for feature
+implementation.
+
+** Layer 5: Human interaction layer
+This layer represents the human responsibility boundary. It defines who is responsible for
+satisfying missing system capabilities (user or distribution developer) as reported by Layer 4.
+*** Responsibility:
++ Assign responsibility for remediation (user vs distribution developer).
++ Provide guidance messages or documentation references.
++ Exists outside the automated configuration flow.
+  
+* Observer Layer:
++ Monitors runtime changes in environment, tools, packages, and modes
++ Compares current state against Layer 1 baseline
++ Triggers Layer 1 refresh when relevant changes occur
++ Reports deviations to Layer 4 for enforcement or user notification
++ Intercepts and logs configuration changes done via Customize for further user actions in Layers 3
+  and 4.
++ Does not mutate Layer 1 directly
+
+* Design Constraints
++ Directional dependency only
++ No implicit global mutation
++ Explicit ownership of state
++ Introspection over interception
++ Declarative intent over imperative sequencing
