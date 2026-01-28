@@ -29,8 +29,229 @@ Light Emacs distribution core components include the following ones:
 3- Distribution user interface file
 4- Distribution library file
 5- Distribution package management file
+6- Distribution helpers file.
 
 ** LMX Initialization
+
+*** Distribution specific files
+**** Distribution library dependency file
+
+The file within this section provides a library of variables and functions that govern the behaviour
+of the distribution.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-lib.el
+  ;;; distrib-lib.el -*- lexical-binding: t; -*-
+
+  ;; Provides variables and functions for the emacs distribution
+  ;; The relevant variables are not used anywhere in the codebase so they were commented out.
+
+
+  ;; Set default directory locations
+  (defgroup distribution nil
+    "Emacs distribution customization"
+    :group 'Emacs)
+
+  (defcustom distrib-name nil
+    "Emacs distribution name"
+    :type 'string
+    :group 'distribution)
+
+  ;; Commented out since its use within the codebase is eliminated
+  ;; (defcustom distrib-core-dir (expand-file-name "core/" distrib-lisp-code-dir)
+  ;;   "Default distribution core directory"
+  ;;   :type 'string
+  ;;   :group 'distribution)
+
+  (defcustom distrib-cache-dir (expand-file-name ".cache/" user-emacs-directory)
+    "Default distribution cache directory"
+    :type 'string
+    :group 'distribution)
+
+  (defcustom distrib-local-dir (expand-file-name ".local/" emacs-distrib-proj-root)
+    "Distribution default local directory"
+    :type 'string
+    :group 'distribution)
+
+  ;; Commented out since its use within the codebase is eliminated
+  ;; (defcustom distrib-modules-dir (expand-file-name "lisp/modules/" emacs-distrib-proj-root)
+  ;;   "Distribution default modules directory"
+  ;;   :type 'string
+  ;;   :group 'distribution)
+
+
+  (provide 'distrib-lib)
+
+#+END_SRC
+
+**** Distribution helpers file
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-helpers.el
+  ;;; distrib-helpers -*- lexical-binding: t; -*-
+
+  (defun lmx-load-theme (theme)
+    "Load downloaded theme."
+    (interactive
+     (list
+      (intern (completing-read "Load custom theme: "
+  			     (mapcar #'symbol-name
+  				     (custom-available-themes))))))
+    (load-theme theme t))
+
+  (defun fix-doom-modeline (frame)
+    "Fix doom modeline to make it show modeline icons when Emacs is started as daemon. FRAME is the name of the frame."
+    (with-selected-frame frame
+      (when (display-graphic-p)
+        (setq doom-modeline-icon t))))
+
+  (defun remove-unnecessary-webmode-faces (&rest _)
+      """Remove uncessary faces from web-mode"""
+      (dolist (face '(web-mode-html-tag-face
+                      web-mode-html-attr-name-face
+                      web-mode-html-attr-value-face
+                      web-mode-comment-face
+                      web-mode-doctype-face
+                      web-mode-block-face
+                      web-mode-block-control-face
+                      web-mode-variable-name-face
+                      web-mode-keyword-face
+                      web-mode-string-face
+                      web-mode-html-text-face
+                      web-mode-normal-face))
+        (when (facep face)
+          (set-face-attribute face nil :background nil))))
+
+  (defun distrib-evil-exit-insert ()
+    "Exit evil insert mode when 'jk' key-chord is pressed"
+    (interactive)
+    (let ((event (read-event nil nil 0.3)))
+  	(if (and (characterp event) (char-equal event ?k))
+  		(evil-normal-state)
+  	  (insert "j")
+  	  (push event unread-command-events))))
+
+  (provide 'distrib-helpers)
+#+END_SRC
+
+**** Main Distribution file
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib.el
+  ;;; distrib.el -*- lexical-binding: t ; -*-
+
+  (require 'distrib-lib)
+
+  ;; Load custom-file after early-init.el.
+  ;; This package will be included initially within init.el
+  (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+  (load custom-file)
+  (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
+
+  (provide 'distrib)
+#+END_SRC
+
+**** User interface distribution dependency file
+
+The file is concerned with setting defaults for user interface for the whole
+distribution.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-ui.el
+  ;;; distrib-ui.el -*- lexical-binding: t ; -*-
+
+  ;; =========================
+  ;; Setting Global Emacs font
+  ;; =========================
+  ;; There are two methods for setting the Emacs Font using Lisp
+  ;; 1- using (add-to-list 'default-frame-alist
+  ;; '(font . "Font_name-Font_size")).
+  ;;
+  ;; This sets the font for future emacs sessions
+  ;; 2- using (set-face-attribute 'default nil :font
+  ;; "Font_name" :height integer_for_font_height).
+  ;;
+  ;; This sets the font globally for emacs instantaneously and
+  ;; for future Emacs sessions.
+
+
+  (setq distrib-name "Light Emacs"
+        frame-title-format
+        '("" (:eval distrib-name)
+  		"\s-\s"
+  		(:eval (if (project-current)
+  				   (let ((proj-dir (project-root (project-current))))
+  					 (abbreviate-file-name proj-dir))
+  				 (abbreviate-file-name default-directory)))))
+
+  (provide 'distrib-ui)
+#+END_SRC
+
+**** Distribution package management dependency file
+
+The package management dependency file configures the *package installer*,
+and other package list software.
+
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-packagers.el
+  ;;; distrib-packagers.el -*- lexical-binding: t; -*-
+
+  (require 'distrib-lib)
+
+  ;; Initialize Straight package manager
+  (setq straight-base-dir distrib-local-dir
+        straight-repository-branch "develop"
+        straight-cache-autoloads t
+        straight-check-for-modifications nil
+        straight-enable-package-integration nil
+        straight-vc-git-default-clone-depth 1
+        autoload-compute-prefixes nil
+        straight-use-package-by-default t)
+
+  (defvar bootstrap-version)
+  (setq straight-built-in-pseudo-packages '(project python))
+  (let ((bootstrap-file
+         (expand-file-name "straight/repos/straight.el/bootstrap.el" distrib-local-dir))
+        (bootstrap-version 5))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+  	(url-retrieve-synchronously
+  	 "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+  	 'silent 'inhibit-cookies)
+        (goto-char (point-max))
+        (eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+
+
+  ;; Set use-package macro to always use defer.
+  ;; Note that whenever you need to ensure you should explicitly add it for any relevant package.
+  (use-package use-package
+    :straight (use-package :type built-in :pin nil)
+    :config
+    (setq use-package-always-defer t)
+    (setq use-package-always-ensure nil))
+
+  ;; Configure Package
+
+  (use-package package
+    :config
+    (setq package-user-dir (expand-file-name "elpa" distrib-local-dir)
+  	package-gnupghome-dir (expand-file-name "gpg" package-user-dir))
+    (add-to-list 'package-archives
+  	       '("gnu" . "https://elpa.gnu.org/packages/") t)
+    (add-to-list 'package-archives
+  	       '("melpa" . "https://melpa.org/packages/") t)
+    (add-to-list 'package-archives
+  	       '("org" . "https://orgmode.org/elpa/") t))
+
+    ;; Install diminish and delight for use with use-package when needed.
+  (use-package diminish :straight t)
+
+  (use-package delight :straight t)
+
+
+  ;; Install epkg to view packages in Emacsmirror
+  (use-package epkg
+    :straight t
+    :config
+    (setq epkg-repository (expand-file-name "epkgs" distrib-local-dir)))
+
+  (provide 'distrib-packagers)
+#+END_SRC
 
 *** Emacs Early Init file
 
@@ -90,9 +311,9 @@ from /emacs initialization/ to boost the latter.
         initial-major-mode #'fundamental-mode)
 
   ;; Performance tuning variables and environment variables that enhance lsp-mode functionality
-  (setq read-process-output-max (* 1024 1024))
-  (setenv "LSP_USE_PLISTS" "true")
-  (setq max-lisp-eval-depth 48000)
+  ;; (setq read-process-output-max (* 1024 1024))
+  ;; (setenv "LSP_USE_PLISTS" "true")
+  ;; (setq max-lisp-eval-depth 48000)
 
   #+END_SRC
 
@@ -101,294 +322,82 @@ from /emacs initialization/ to boost the latter.
 #+BEGIN_SRC emacs-lisp :tangle ~/.config/emacs/init.el
   ;;; init.el -*- lexical-binding: t; -*-
 
-  ;; Load essential distribution libraries
-  (require 'distrib)
-  (require 'distrib-ui)
-  (require 'distrib-packagers)
 
-  ;; Default emacs user enhancements
-  (setq make-backup-files nil)
-  (global-auto-revert-mode t) ; Sync file buffers with disk file changes
-  (fset 'yes-or-no-p 'y-or-n-p)	; Set default 'yes or no' prompt to a short form
-  (setq-default auto-fill-function 'do-auto-fill)
-  (setq-default tab-width 4)
-  (setq-default fill-column 100) ; Set the default fill column to 100
-  (show-paren-mode t)
-  (electric-pair-mode t) ; Enable automatic parens completion at startup
-  (column-number-mode t) ; Show column number
-
-  ;; Personal information
-  (setq user-full-name "Hassan Abdin"
-        user-mail-address "habdin@gmail.com")
-  (global-hl-line-mode t)
-
-  ;; Load preferred distrubtion modules
-  (require 'modeline)
-  (require 'themes)
-  (require 'version-control)
-  (require 'dist-evil)
-  (require 'snippets)
-  (require 'completions)
-  (require 'ligature)
-  (require 'progconf)
-  (require 'orgmode)
-  (require 'dist-editorconfig)
-  (require 'dist-codespaces)
-  (require 'keymaps-manager)
-  ;; (require 'langserverprotocol)
-  (require 'dist-debug)
-  (require 'tex-lang)
-  (require 'python-lang)
-  (require 'csharp-lang)
-  (require 'html_css-lang)
-  (require 'javascript-lang)
-  (require 'lua-lang)
-  (require 'treesitter)
-  (require 'autoformatter)
-  (require 'ai)
-  (require 'financial)
-
+  (org-babel-load-file (expand-file-name "config.org" user-emacs-directory))
   ;; Load user ui settings
-  (add-hook 'after-init-hook
-  		  (lambda ()
-  			(set-face-attribute 'default nil :font "Iosevka" :height 120)))
-  (lmx-load-theme 'doom-tokyo-night)		; Set the theme
+  ;; (when (display-graphic-p)
+  ;;   ;; Ensure any future frames to inherit the font
+  ;;   (add-to-list 'default-frame-alist '(font . "Iosevka-12"))
+  ;;   (set-face-attribute 'default nil :font "Iosevka" :height 120))
+  ;; (lmx-load-theme 'modus-vivendi-tritanopia)		; Set the theme
+
+  ;; ;; Load essential distribution libraries
+  ;; (require 'distrib)
+  ;; (require 'distrib-ui)
+  ;; (require 'distrib-packagers)
+
+
+  ;; ;; Default emacs user enhancements
+  ;; ;; Editor behaviour
+  ;; (use-package emacs
+  ;;   :init
+  ;;   (fset 'yes-or-no-p 'y-or-n-p)
+  ;;   (setq make-backup-files nil)
+
+  ;;   ;; Personal information
+  ;;   (setq user-full-name "Hassan Abdin"
+  ;; 		user-mail-address "habdin@gmail.com")
+  ;;   :config
+  ;;   ;; Global minor modes
+  ;;   (global-auto-revert-mode t) ; Sync file buffers with disk file changes
+  ;;   (show-paren-mode t)
+  ;;   (electric-pair-mode t) ; Enable automatic parens completion at startup
+  ;;   (column-number-mode t) ; Show column number
+  ;;   (global-hl-line-mode t)
+  ;; )
+
+
+  ;; ;; Load preferred distrubtion modules
+  ;; (require 'modeline)
+  ;; (require 'themes)
+  ;; (require 'version-control)
+  ;; (require 'dist-evil)
+  ;; (require 'snippets)
+  ;; (require 'completions)
+  ;; (require 'ligature)
+  ;; (require 'progconf)
+  ;; (require 'orgmode)
+  ;; (require 'dist-editorconfig)
+  ;; (require 'dist-codespaces)
+  ;; (require 'keymaps-manager)
+  ;; (require 'langserverprotocol)
+  ;; (require 'dist-debug)
+  ;; (require 'tex-lang)
+  ;; (require 'python-lang)
+  ;; (require 'csharp-lang)
+  ;; (require 'html_css-lang)
+  ;; (require 'javascript-lang)
+  ;; (require 'lua-lang)
+  ;; (require 'treesitter)
+  ;; (require 'autoformatter)
+  ;; (require 'ai)
+  ;; (require 'typst-lang)
+  ;; (require 'rust-lang)
+  ;; (require 'financial)
+  ;; (use-package vterm)
+
+  ;; (add-hook 'after-init-hook
+  ;; 		  (lambda ()
+  ;; 			(set-face-attribute 'default nil :font "Iosevka" :height 120)))
 
 
   ;; (use-package gcmh
-  ;;   :straight t
-  ;;   :init
-  ;;   (setq gcmh-idle-delay 5
-  ;;   		gcmh-high-cons-threshold most-positive-fixnum
-  ;;   		gcmh-low-cons.thresold 16777216)
-  ;;   :config (gcmh-mode 1))
-#+END_SRC
-
-*** Distribution specific files
-**** Main Distribution file
-
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib.el
-  ;;; distrib.el -*- lexical-binding: t ; -*-
-
-  (require 'distrib-lib)
-
-  ;; Load custom-file after early-init.el.
-  ;; This package will be included initially within init.el
-  (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-  (load custom-file)
-  (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
-  ;; Setting defaults directories for different emacs packages
-
-
-  (setq bookmark-default-file (expand-file-name "bookmarks/" distrib-cache-dir)
-  	  package-user-dir (expand-file-name "elpa" distrib-local-dir)
-  	  auto-save-list-file-prefix
-  	  (cond ((eq (system-name) 'ms-dos)
-  			 (expand-file-name "auto-save.list/_s" distrib-cache-dir))
-  			(t
-  			 (expand-file-name "auto-save-list/.saves-" distrib-cache-dir))))
-
-  (use-package recentf
-    :config
-    (run-at-time nil (* 60 60) 'recentf-save-list)
-    (recentf-mode)
-    :custom
-    (recentf-save-file (expand-file-name "recentf" distrib-cache-dir) "File to save the recent list into.")
-    (recentf-max-saved-items 1000 "Maximum number of items of the recent list that will be
-  saved.")
-    (recentf-auto-cleanup 'never "Define when to automatically cleanup the recent list.")
-    (recentf-exclude '("/ssh:")))
-
-  (use-package whitespace
-    :custom
-    (whitespace-action 'auto-cleanup "Specify which action is taken when a buffer is visited or
-    written.") 
-    (whitespace-line-column 10000))
-
-  (use-package eshell
-    :custom
-    (eshell-directory-name (expand-file-name "eshell" distrib-cache-dir)))
-
-  (use-package url
-    :custom (url-configuration-directory (expand-file-name "url" distrib-cache-dir)))
-
-  (provide 'distrib)
-#+END_SRC
-
-**** User interface distribution dependency file
-
-The file is concerned with setting defaults for user interface for the whole
-distribution.
-
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-ui.el
-  ;;; distrib-ui.el -*- lexical-binding: t ; -*-
-
-  ;; =========================
-  ;; Setting Global Emacs font
-  ;; =========================
-  ;; There are two methods for setting the Emacs Font using Lisp
-  ;; 1- using (add-to-list 'default-frame-alist
-  ;; '(font . "Font_name-Font_size")).
-  ;;
-  ;; This sets the font for future emacs sessions
-  ;; 2- using (set-face-attribute 'default nil :font
-  ;; "Font_name" :height integer_for_font_height).
-  ;;
-  ;; This sets the font globally for emacs instantaneously and
-  ;; for future Emacs sessions.
-
-
-  (setq distrib-name "Light Emacs"
-        frame-title-format
-        '("" (:eval distrib-name)
-  		"\s-\s"
-  		(:eval (if (project-current)
-  				   (let ((proj-dir (project-root (project-current))))
-  					 (abbreviate-file-name proj-dir))
-  				 (abbreviate-file-name default-directory)))))
-
-  (provide 'distrib-ui)
-#+END_SRC
-
-**** Distribution library dependency file
-
-The file within this section provides a library of variables and functions that govern the behaviour
-of the distribution.
-
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-lib.el
-  ;;; distrib-lib.el -*- lexical-binding: t; -*-
-
-  ;; Provides variables and functions for the emacs distribution
-  ;; The relevant variables are not used anywhere in the codebase so they were commented out.
-
-
-  ;; Set default directory locations
-  (defgroup distribution nil
-    "Emacs distribution customization"
-    :group 'Emacs)
-
-  (defcustom distrib-name nil
-    "Emacs distribution name"
-    :type 'string
-    :group 'distribution)
-
-  ;; Commented out since its use within the codebase is eliminated
-  ;; (defcustom distrib-core-dir (expand-file-name "core/" distrib-lisp-code-dir)
-  ;;   "Default distribution core directory"
-  ;;   :type 'string
-  ;;   :group 'distribution)
-
-  (defcustom distrib-cache-dir (expand-file-name ".cache/" user-emacs-directory)
-    "Default distribution cache directory"
-    :type 'string
-    :group 'distribution)
-
-  (defcustom distrib-local-dir (expand-file-name ".local/" emacs-distrib-proj-root)
-    "Distribution default local directory"
-    :type 'string
-    :group 'distribution)
-
-  ;; Commented out since its use within the codebase is eliminated
-  ;; (defcustom distrib-modules-dir (expand-file-name "lisp/modules/" emacs-distrib-proj-root)
-  ;;   "Distribution default modules directory"
-  ;;   :type 'string
-  ;;   :group 'distribution)
-
-  (defun lmx-load-theme (theme)
-    "Load downloaded theme."
-    (interactive
-     (list
-      (intern (completing-read "Load custom theme: "
-  			     (mapcar #'symbol-name
-  				     (custom-available-themes))))))
-    (load-theme theme t))
-
-  (provide 'distrib-lib)
-
-#+END_SRC
-
-**** Distribution package management dependency file
-
-The package management dependency file configures the *package installer*,
-and other package list software.
-
-#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/core/distrib-packagers.el
-  ;;; distrib-packagers.el -*- lexical-binding: t; -*-
-
-  (require 'distrib-lib)
-
-  ;; Initialize Straight package manager
-  (setq straight-base-dir distrib-local-dir
-  	straight-repository-branch "develop"
-  	straight-cache-autoloads t
-  	straight-check-for-modifications nil
-  	straight-enable-package-integration nil
-  	straight-vc-git-default-clone-depth 1
-  	autoload-compute-prefixes nil
-  	straight-use-package-by-default t)
-
-  (defvar bootstrap-version)
-  (setq straight-built-in-pseudo-packages '(project python))
-  (let ((bootstrap-file
-  	 (expand-file-name "straight/repos/straight.el/bootstrap.el" distrib-local-dir))
-  	(bootstrap-version 5))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-  	(url-retrieve-synchronously
-  	 "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-  	 'silent 'inhibit-cookies)
-  	(goto-char (point-max))
-  	(eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage))
-
-  ;; Install use-package in emacs version prior to 29.1
-  (when (version< emacs-version "29.1")
-    (straight-use-package 'use-package)
-    (require 'use-package))
-
-  ;; Set use-package macro to always use defer.
-  ;; Note that whenever you need to ensure you should explicitly add it for any relevant package.
-  (use-package use-package
-    :init
-    (setq use-package-always-defer t))
-
-  ;; Configure Package
-
-  (use-package package
-    :config
-    (setq package-user-dir (expand-file-name "elpa" distrib-local-dir)
-  	package-gnupghome-dir (expand-file-name "gpg" package-user-dir))
-    (add-to-list 'package-archives
-  	       '("gnu" . "https://elpa.gnu.org/packages/") t)
-    (add-to-list 'package-archives
-  	       '("melpa" . "https://melpa.org/packages/") t)
-    (add-to-list 'package-archives
-  	       '("org" . "https://orgmode.org/elpa/") t))
-
-  ;; Install Paradox for browsing packages
-  (use-package paradox
-    :straight t
-    :config
-    (setq paradox-github-token (expand-file-name "paradox-token" user-emacs-directory)))
-
-
-  ;; Install diminish and delight for use with use-package when needed.
-  (use-package diminish
-    :straight t
-    )
-
-  (use-package delight
-    :straight t
-    )
-
-
-  ;; Install epkg to view packages in Emacsmirror
-  (use-package epkg
-    :straight t
-    :config
-    (setq epkg-repository (expand-file-name "epkgs" distrib-local-dir)))
-
-  (provide 'distrib-packagers)
+    ;; :straight t
+    ;; :init
+    ;; (setq gcmh-idle-delay 5
+    ;; 		gcmh-high-cons-threshold most-positive-fixnum
+    ;; 		gcmh-low-cons.thresold 16777216)
+    ;; :config (gcmh-mode 1))
 #+END_SRC
 
 * Lmx modules
@@ -403,12 +412,6 @@ module directory.
 #+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/ui/modeline.el
   ;;; modeline.el -*- lexical-binding: t; -*-
 
-  (defun fix-doom-modeline (frame)
-    "Fix doom modeline to make it show modeline icons when Emacs is started as daemon.
-     FRAME is the name of the frame."
-    (with-selected-frame frame
-  	(when (display-graphic-p)
-  	  (setq doom-modeline-icon t))))
 
   (use-package doom-modeline
     :straight t
@@ -458,10 +461,6 @@ module directory.
     :init (vertico-mode)
     )
 
-  (use-package savehist
-    :config (setq savehist-file (expand-file-name "history" distrib-cache-dir))
-    :init
-    (savehist-mode))
 
   (use-package orderless
     :straight t
@@ -709,9 +708,8 @@ module directory.
     :straight t
     :commands format-all-mode
     :hook (prog-mode . format-all-mode)
-    :config
-    (add-hook 'before-save-hook (lambda() setq format-all-formatters
-  				'(("Python" (black "-c") (isort))))))
+    )
+
   (provide 'autoformatter)
 #+END_SRC
 
@@ -772,13 +770,14 @@ module directory.
   			  evil-want-keybinding nil)
     :config
     (evil-set-undo-system 'undo-redo)
+    (define-key evil-insert-state-map (kbd "j") 'distrib-evil-exit-insert)
     (evil-define-key 'normal eglot-mode-map (kbd "K") 'eldoc-doc-buffer)
     (dolist (mode '(Info-mode
-  				help-mode
-  				dired-mode
-  				eww-mode
-  				Buffer-menu-mode))
-    (evil-set-initial-state mode 'emacs)))
+  		  help-mode
+  		  dired-mode
+  		  eww-mode
+  		  Buffer-menu-mode))
+      (evil-set-initial-state mode 'emacs)))
 
   (use-package evil-collection
     :straight t
@@ -855,48 +854,52 @@ module directory.
 #+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/langserverprotocol.el
   ;; langserverprotocol.el -*- lexical-binding: t; -*-
 
-  (use-package lsp-mode
-    :straight t
-    :hook
-    ;; (python-mode . lsp-deferred)
-    ;; (csharp-mode . lsp-deferred)
-    ;; (c-mode . lsp-deferred)
-    (lsp-mode . lsp-enable-which-key-integration)
-    :commands (lsp lsp-deferred)
-    :config
-    (setq lsp-session-file (concat distrib-cache-dir "lsp-session-v1")
-  	lsp-idle-delay 0.1
-  	treemacs-space-between-root-nodes nil
-  	company-minimum-prefix-length 1
-  	)
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\venv\\'"))
+  ;; (use-package lsp-mode
+  ;;   :straight t
+  ;;   :hook
+  ;;   ;; (python-mode . lsp-deferred)
+  ;;   ;; (csharp-mode . lsp-deferred)
+  ;;   ;; (c-mode . lsp-deferred)
+  ;;   (lsp-mode . lsp-enable-which-key-integration)
+  ;;   :commands (lsp lsp-deferred)
+  ;;   :config
+  ;;   (setq lsp-session-file (concat distrib-cache-dir "lsp-session-v1")
+  ;; 	lsp-idle-delay 0.1
+  ;; 	treemacs-space-between-root-nodes nil
+  ;; 	company-minimum-prefix-length 1
+  ;; 	)
+  ;;   (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\venv\\'"))
 
   (use-package eglot
     :straight (eglot :type built-in :pin nil)
+    :hook (prog-mode . eglot-ensure)
     :config
-       (add-to-list 'eglot-server-programs '((web-mode) . ("omnisharp" "--languageserver" "hostPID" (number-to-string (process-id)))))
-   )
+    (add-to-list 'eglot-server-programs `((web-mode) . ("omnisharp" "--languageserver" )))
+    (add-to-list 'eglot-server-programs `((typst-ts-mode) . ("tinymist" "lsp")))
+    (add-to-list 'eglot-server-programs
+  			   `((rust-ts-mode rust-mode) . ("rust-analyzer" :initializationOptions
+  											 (:check (:command "clippy")
+  													 :procMacro (:enable t)
+  													 :cargo (:loadOutDirsFromCheck t))))))
 
-  (use-package lsp-ui
-    :straight t
-    :after lsp-mode
-    :hook (lsp-ui-mode . lsp)
-    (lsp-ui-doc-frame-mode . lsp-ui))
+
+  ;; (use-package lsp-ui
+  ;;   :straight t
+  ;;   :after lsp-mode
+  ;;   :hook (lsp-ui-mode . lsp)
+  ;;   (lsp-ui-doc-frame-mode . lsp-ui))
 
   ;; (use-package lsp-ivy
   ;;   :straight t
   ;;   :after lsp-mode
   ;;   :commands lsp-ivy-workspace-symbol)
 
-  (use-package lsp-treemacs
-    :straight t
-    :after lsp-mode
-    :config (lsp-treemacs-sync-mode 1)
-    :commands lsp-treemacs-errors-list)
+  ;; (use-package lsp-treemacs
+  ;;   :straight t
+  ;;   :after lsp-mode
+  ;;   :config (lsp-treemacs-sync-mode 1)
+  ;;   :commands lsp-treemacs-errors-list)
 
-  (use-package eglot
-    :hook (prog-mode . eglot-ensure)
-  )
 
   (provide 'langserverprotocol)
 #+END_SRC
@@ -1094,14 +1097,18 @@ module directory.
 
   (setq display-line-numbers-type 'relative)
   (add-hook 'prog-mode-hook
-  	  (if (fboundp 'display-line-numbers-mode)
-  	      #'display-line-numbers-mode
-  	    #'linum-mode))
-
+  		  (lambda ()
+  			(eglot-ensure)
+  			(subword-mode)
+  			(funcall
+  			 (if (fboundp 'display-line-numbers-mode)
+  				#'display-line-numbers-mode
+  			  #'linum-mode)
+  			 )))
   (use-package project
     :ensure nil
     :custom
-    (project-list-file (expand-file-name "projects" distrib-cache-dir)))
+    (project-list-file (expand-file-name "projects.eld" distrib-cache-dir)))
 
 
   (provide 'progconf)
@@ -1111,23 +1118,6 @@ module directory.
 #+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/tools/html_css-lang.el
   ;;; html_css-lang.el -*- lexical-binding: t; -*-
 
-  (defun remove-unnecessary-webmode-faces
-  	(&rest _)
-    """Remove uncessary faces from web-mode"""
-    (dolist (face '(web-mode-html-tag-face
-  				  web-mode-html-attr-name-face
-  				  web-mode-html-attr-value-face
-  				  web-mode-comment-face
-  				  web-mode-doctype-face
-  				  web-mode-block-face
-  				  web-mode-block-control-face
-  				  web-mode-variable-name-face
-  				  web-mode-keyword-face
-  				  web-mode-string-face
-  				  web-mode-html-text-face
-  				  web-mode-normal-face))
-  	(when (facep face)
-  	  (set-face-attribute face nil :background nil))))
 
   (use-package web-mode
     :straight t
@@ -1183,7 +1173,6 @@ module directory.
     :interpreter "node"
     :mode (("\\.js\\'" . js2-mode))
     :hook
-    (js2-mode . lsp-deferred)
     (js2-mode . dap-ui-mode)
     (js2-mode . dap-mode)
     (js2-mode . tree-sitter-mode))
@@ -1221,9 +1210,7 @@ module directory.
   ;;; lua-lang.el -*- lexical-binding: t' -*-
 
   (use-package lua-mode
-    :straight t
-    :config
-    (add-hook 'lua-mode-hook #'eglot-ensure))
+    :straight t)
 
   (provide 'lua-lang)
 #+END_SRC
@@ -1237,10 +1224,11 @@ module directory.
     :config
     (advice-add 'python-mode :before #'pyvenv-mode))
 
-  (use-package python
+  (use-package python-ts-mode
+    :straight (python-ts-mode :type built-in :pin nil)
     :hook
-    ((python-mode . lsp-deferred) (python-mode . dap-ui-mode) (python-mode . dap-mode)
-     (python-mode . tree-sitter-mode) (python-mode . fira-code-mode))
+    ((python-ts-mode . dap-ui-mode)
+     (python-ts-mode . dap-mode))
     :config
     (require 'dap-python)
     (setq dap-python-debugger 'debugpy)
@@ -1255,11 +1243,6 @@ module directory.
   (use-package with-venv
     :straight t)
 
-  (use-package lsp-pyright
-    :straight t
-    :hook (python-mode . (lambda () (require 'lsp-pyright)
-  			 (lsp))))
-
   (provide 'python-lang)
 #+END_SRC
 
@@ -1268,12 +1251,23 @@ module directory.
   ;;; c-sharp-lang.el -*- lexical-binding: t; -*-
 
   (use-package csharp-mode
-    :straight (csharp-mode :type built-in :pin nil)
-    :hook ((csharp-mode . eglot-ensure)
-  		 (csharp-mode . tree-sitter-mode)
-  		 (csharp-mode . fira-code-mode)))
+    :straight (csharp-mode :type built-in :pin nil))
+    ;; :hook (csharp-mode . fira-code-mode))
 
   (provide 'csharp-lang)
+#+END_SRC
+
+*** Rust language support  
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/rust-lang.el
+  ;;; rust-lang.el -*- lexical-binding: t; -*-
+
+  (use-package rust-ts-mode
+    :straight (rust-ts-mode :type built-in :pin nil)
+    :mode ("\\.rs\\'" . rust-ts-mode))
+    ;; :hook (rust-ts-mode . fira-code-mode)
+
+
+  (provide 'rust-lang)
 #+END_SRC
 
 *** Tex language support
@@ -1287,12 +1281,24 @@ module directory.
     (setq TeX-parse-self t)
     (setq-default Tex-Master t)
     (setq reftex-plug-into-AUCTeX t)
-    (add-to-list 'auto-mode-alist '("\\.tex\\'" . LaTeX-mode))
-    (add-hook 'LaTeX-mode-hook #'lsp-mode)
-    (add-hook 'LaTeX-mode-hook #'turn-on-reftex))
+    :mode (("\\.tex\\'" . LaTeX-mode))
+    :hook ((LaTeX-mode . eglot-ensure)
+  		 (LaTeX-mode . turn-on-reftex)))
 
   (provide 'tex-lang)
 #+END_SRC
+
+*** Typst language support
+#+BEGIN_SRC emacs-lisp :mkdirp yes :tangle lisp/modules/lang/typst-lang.el
+  ;;; typst-lang.el -*- lexical-binding: t; -*-
+
+  (use-package typst-ts-mode
+    :straight t
+    :hook ((typst-ts-mode . eglot-ensure)))
+
+  (provide 'typst-lang)
+#+END_SRC
+
 
 ** NETWORK
 ** Financial
@@ -1308,13 +1314,5 @@ module directory.
   (provide 'financial)
 #+END_SRC
 
-(defun distrib-evil-exit-insert ()
-  "Exit evil insert mode when 'jk' key-chord is pressed"
-  (interactive)
-  (let ((event (read-event nil nil 0.3)))
-	(if (and (characterp event) (char-equal event ?k))
-		(evil-normal-state)
-	  (insert "j")
-	  (push event unread-command-events))))
 
 (define-key evil-insert-state-map (kbd "j") 'distrib-evil-exit-insert)

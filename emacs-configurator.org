@@ -10,9 +10,10 @@ very logical way to create a system with proper non-overlapping responsibilities
 depends on the functionality of the inner.
 
 ** Layer 1: Basal layer
-# :PROPERTIES:
-# :CUSTOM_ID: Layer_1
-# :END:
+:PROPERTIES:
+:CUSTOM_ID: Layer_1
+:END:
+
 *** Responsibility:
 + Define default paths:
   + The suggested default paths naming convention should differ from the defcustom-based variables
@@ -37,10 +38,12 @@ co-exist, since no sandbox for experimentation would be needed.
 Postponed yet it will provide the methodology of implementing the features and task list for feature
 implementation.
 
+
 ** Layer 2: Package management layer
-# :PROPERTIES:
-# :CUSTOM_ID: Layer_2
-# :END:
+:PROPERTIES:
+:CUSTOM_ID: Layer_2
+:END:
+
 *** Responsibility:
 + Be aware of different package management available
   (Possibly through featurep 'package-manager + list of package-managers)
@@ -62,7 +65,12 @@ Offers choice of package manager for the user.
 Postponed yet it will provide the methodology of implementing the features and task list for feature
 implementation.
 
+
 ** Layer 3: Package/Module configuration layer
+:PROPERTIES:
+:CUSTOM_ID: Layer_3
+:END:
+
 *** Responsibility:
 + Be aware of manually packages present in a load-path set manually by the user.
 + Package or Module should declare:
@@ -85,7 +93,12 @@ Distribution agnostic, wrapper for layer 2.
 Postponed yet it will provide the methodology of implementing the features and task list for feature
 implementation.
 
+
 ** Layer 4: Top Layer
+:PROPERTIES:
+:CUSTOM_ID: Layer_4
+:END:
+
 This is the Userland layer. It is where everything gets wrapped. It affects layer 2 and 3 but never
 layer 1.
 *** Responsibility:
@@ -98,7 +111,12 @@ layer 1.
 Postponed yet it will provide the methodology of implementing the features and task list for feature
 implementation.
 
+
 ** Layer 5: Human interaction layer
+:PROPERTIES:
+:CUSTOM_ID: Layer_5
+:END:
+
 This layer represents the human responsibility boundary. It defines who is responsible for
 satisfying missing system capabilities (user or distribution developer) as reported by Layer 4.
 *** Responsibility:

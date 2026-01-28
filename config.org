@@ -1,0 +1,529 @@
+* Purpose
+
+Organized init.el emacs configuration. The contents will be tangled to init.el.
+
+** Push file-mode
+#+BEGIN_SRC emacs-lisp :tangle yes
+;;; config.el  -*- lexical-binding: t; -*-
+
+#+END_SRC
+
+** Load distribution packages
+All distribution packages are loaded. The `require' command is used since the
+load path is already defined in early-init.el. You won't be able to load any
+custom functions in distrib-helpers. Emacs will not start correctly.
+
+#+BEGIN_SRC emacs-lisp :tangle yes
+
+  (require 'distrib-helpers)
+  (require 'distrib-packagers)
+  (require 'distrib-ui)
+  (require 'distrib)
+  
+#+END_SRC
+
+** Set defaults for builtin packages
+
+#+BEGIN_SRC  emacs-lisp :tangle yes
+  (setq bookmark-default-file (expand-file-name "bookmarks/" distrib-cache-dir)
+  	  package-user-dir (expand-file-name "elpa" distrib-local-dir)
+  	  auto-save-list-file-prefix
+  	  (cond ((eq (system-name) 'ms-dos)
+  			 (expand-file-name "auto-save.list/_s" distrib-cache-dir))
+  			(t
+  			 (expand-file-name "auto-save-list/.saves-" distrib-cache-dir))))
+  (use-package recentf
+    :config
+    (run-at-time nil (* 60 60) 'recentf-save-list)
+    (recentf-mode)
+    :custom
+    (recentf-save-file (expand-file-name "recentf" distrib-cache-dir) "File to save the recent list into.")
+    (recentf-max-saved-items 1000 "Maximum number of items of the recent list that will be saved.")
+    (recentf-auto-cleanup 'never "Define when to automatically cleanup the recent list.")
+    (recentf-exclude '("/ssh:")))
+
+  (use-package ielm
+    :config
+    (ielm-history-file-name (expand-file-name "ielm-history.eld" distrib-cache-dir) "Ielm history file location."))
+
+  (use-package whitespace
+    :custom
+    (whitespace-action 'auto-cleanup "Specify which action is taken when a buffer is visited or written.") 
+    (whitespace-line-column 10000))
+
+  (use-package eshell
+    :custom
+    (eshell-directory-name (expand-file-name "eshell" distrib-cache-dir)))
+
+  (use-package url
+    :custom (url-configuration-directory (expand-file-name "url" distrib-cache-dir)))
+
+  (use-package savehist
+    :config (setq savehist-file (expand-file-name "history" distrib-cache-dir))
+    :init
+    (savehist-mode))
+
+#+END_SRC
+
+** Set emacs defaults
+#+BEGIN_SRC emacs-lisp :tangle yes
+
+  (use-package emacs
+    :init
+    (fset 'yes-or-no-p 'y-or-n-p)
+    (setq make-backup-files nil)
+
+    ;; Personal information
+    (setq user-full-name "Hassan Abdin"
+  		user-mail-address "habdin@gmail.com")
+    :config
+    ;; Global minor modes
+    (global-auto-revert-mode t) ; Sync file buffers with disk file changes
+    (show-paren-mode t)
+    (electric-pair-mode t) ; Enable automatic parens completion at startup
+    (column-number-mode t) ; Show column number
+    (global-hl-line-mode t)
+    (which-key-mode)
+  )
+#+END_SRC
+
+** Set Editor UI 
+*** Theme and default font
+#+BEGIN_SRC emacs-lisp tangle:yes
+
+  (when (display-graphic-p)
+    ;; Ensure any future frames to inherit the font
+    (add-to-list 'default-frame-alist '(font . "Iosevka-12"))
+    (set-face-attribute 'default nil :font "Iosevka" :height 120))
+  (lmx-load-theme 'modus-vivendi-tritanopia)		; Set the theme
+
+#+END_SRC
+
+*** Modeline
+For future configuration tool, remember that there are other good modeline tools.
+#+BEGIN_SRC emacs-lisp tangle: yes
+
+  (use-package doom-modeline
+    :straight t
+    :init (doom-modeline-mode 1)
+    (setq doom-modeline-height 25)
+    :config
+    (if (not (display-graphic-p))
+  	  (setq doom-modeline-icon nil))
+    (if (daemonp)
+  	  (add-hook 'after-make-frame-functions #'fix-doom-modeline)
+  	(doom-modeline-mode 1)))
+
+#+END_SRC
+
+*** Additional themes and icons
+
+#+BEGIN_SRC emacs-lisp tangle: yes
+  (use-package doom-themes :straight t)  
+  (use-package nerd-icons-dired :straight t
+    :hook (dired-mode . nerd-icons-dired-mode))
+#+END_SRC
+
+** Tools
+*** Completions
+#+BEGIN_SRC emacs-lisp :tangle yes
+
+  (use-package vertico
+    :straight t
+    :init (vertico-mode)
+    )
+
+
+  (use-package orderless
+    :straight t
+
+    :custom
+    (setq completion-styles '(orderless basic)
+  	completion-category-defaults nil
+  	completion-category-overrides '((file (styles partial-completion)))))
+
+  (use-package marginalia
+    :straight t
+    :init (marginalia-mode)
+    :bind (("M-A" . marginalia-cycle)
+  	 :map minibuffer-local-map
+  	 ("M-A" . marginalia-cycle)))
+
+  (use-package consult
+    ;; Replace bindings. Lazily loaded due by `use-package'.
+    :bind (;; C-c bindings (mode-specific-map)
+  	 ("C-c h" . consult-history)
+  	 ("C-c m" . consult-mode-command)
+  	 ("C-c k" . consult-kmacro)
+  	 ;; C-x bindings (ctl-x-map)
+  	 ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
+  	 ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+  	 ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+  	 ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+  	 ("C-x r b" . consult-bookmark)            ;; orig. bookmark-jump
+  	 ("C-x p b" . consult-project-buffer)      ;; orig. project-switch-to-buffer
+  	 ;; Custom M-# bindings for fast register access
+  	 ("M-#" . consult-register-load)
+  	 ("M-'" . consult-register-store)          ;; orig. abbrev-prefix-mark (unrelated)
+  	 ("C-M-#" . consult-register)
+  	 ;; Other custom bindings
+  	 ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+  	 ;; M-g bindings (goto-map)
+  	 ("M-g e" . consult-compile-error)
+  	 ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
+  	 ("M-g g" . consult-goto-line)             ;; orig. goto-line
+  	 ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+  	 ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
+  	 ("M-g m" . consult-mark)
+  	 ("M-g k" . consult-global-mark)
+  	 ("M-g i" . consult-imenu)
+  	 ("M-g I" . consult-imenu-multi)
+  	 ;; M-s bindings (search-map)
+  	 ("M-s d" . consult-find)
+  	 ("M-s D" . consult-locate)
+  	 ("M-s g" . consult-grep)
+  	 ("M-s G" . consult-git-grep)
+  	 ("M-s r" . consult-ripgrep)
+  	 ("M-s l" . consult-line)
+  	 ("M-s L" . consult-line-multi)
+  	 ("M-s k" . consult-keep-lines)
+  	 ("M-s u" . consult-focus-lines)
+  	 ;; Isearch integration
+  	 ("M-s e" . consult-isearch-history)
+  	 :map isearch-mode-map
+  	 ("M-e" . consult-isearch-history)         ;; orig. isearch-edit-string
+  	 ("M-s e" . consult-isearch-history)       ;; orig. isearch-edit-string
+  	 ("M-s l" . consult-line)                  ;; needed by consult-line to detect isearch
+  	 ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
+  	 ;; Minibuffer history
+  	 :map minibuffer-local-map
+  	 ("M-s" . consult-history)                 ;; orig. next-matching-history-element
+  	 ("M-r" . consult-history))                ;; orig. previous-matching-history-element
+
+    ;; Enable automatic preview at point in the *Completions* buffer. This is
+    ;; relevant when you use the default completion UI.
+    :hook (completion-list-mode . consult-preview-at-point-mode)
+
+    ;; The :init configuration is always executed (Not lazy)
+    :init
+
+    ;; Optionally configure the register formatting. This improves the register
+    ;; preview for `consult-register', `consult-register-load',
+    ;; `consult-register-store' and the Emacs built-ins.
+    (setq register-preview-delay 0.5
+  	register-preview-function #'consult-register-format)
+
+    ;; Optionally tweak the register preview window.
+    ;; This adds thin lines, sorting and hides the mode line of the window.
+    (advice-add #'register-preview :override #'consult-register-window)
+
+    ;; Use Consult to select xref locations with preview
+    (setq xref-show-xrefs-function #'consult-xref
+  	xref-show-definitions-function #'consult-xref)
+
+    ;; Configure other variables and modes in the :config section,
+    ;; after lazily loading the package.
+    :config
+
+    ;; Optionally configure preview. The default value
+    ;; is 'any, such that any key triggers the preview.
+    ;; (setq consult-preview-key 'any)
+    ;; (setq consult-preview-key (kbd "M-."))
+    ;; (setq consult-preview-key (list (kbd "<S-down>") (kbd "<S-up>")))
+    ;; For some commands and buffer sources it is useful to configure the
+    ;; :preview-key on a per-command basis using the `consult-customize' macro.
+    (consult-customize
+     consult-theme :preview-key '(:debounce 0.2 any)
+     consult-ripgrep consult-git-grep consult-grep
+     consult-bookmark consult-recent-file consult-xref
+     consult--source-bookmark consult--source-file-register
+     consult--source-recent-file consult--source-project-recent-file
+     ;; :preview-key (kbd "M-.")
+     :preview-key '(:debounce 0.4 any))
+
+    ;; Optionally configure the narrowing key.
+    ;; Both < and C-+ work reasonably well.
+    (setq consult-narrow-key "<") ;; (kbd "C-+")
+
+    ;; Optionally make narrowing help available in the minibuffer.
+    ;; You may want to use `embark-prefix-help-command' or which-key instead.
+    ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
+
+    ;; By default `consult-project-function' uses `project-root' from project.el.
+    ;; Optionally configure a different project root function.
+    ;; There are multiple reasonable alternatives to chose from.
+  					;;;; 1. project.el (the default)
+    ;; (setq consult-project-function #'consult--default-project--function)
+  					;;;; 2. projectile.el (projectile-project-root)
+    ;; (autoload 'projectile-project-root "projectile")
+    ;; (setq consult-project-function (lambda (_) (projectile-project-root)))
+  					;;;; 3. vc.el (vc-root-dir)
+    ;; (setq consult-project-function (lambda (_) (vc-root-dir)))
+  					;;;; 4. locate-dominating-file
+    ;; (setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
+    )
+
+  (use-package consult-company
+    :straight t
+    )
+
+  (use-package consult-eglot
+    :straight t
+    )
+
+  (use-package consult-yasnippet
+    :straight t
+    )
+
+  (use-package company
+    :straight t
+    :init
+    (setq company-idle-delay 0.1
+          company-minimum-prefix-length 2
+          company-tooltip-align-annotations t
+          company-global-modes '(not help-mode gud-mode message-mode erc-mode))
+    (global-company-mode t)
+    :bind
+    ("M-C-i" . 'company-complete))
+#+END_SRC
+
+*** Evil-mode
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package evil
+    :straight t
+    :commands evil-mode
+    :init (setq evil-want-integration t
+  		evil-want-keybinding nil)
+    :config
+    (evil-set-undo-system 'undo-redo)
+    (define-key evil-insert-state-map (kbd "j") 'distrib-evil-exit-insert)
+    (evil-define-key 'normal eglot-mode-map (kbd "K") 'eldoc-doc-buffer)
+    (dolist (mode '(Info-mode
+  		  help-mode
+  		  dired-mode
+  		  eww-mode
+  		  Buffer-menu-mode))
+      (evil-set-initial-state mode 'emacs)))
+
+  (use-package evil-collection
+    :straight t
+    :after evil
+    :config
+    (evil-collection-init))
+
+  (evil-mode 1)
+
+#+END_SRC
+
+*** Debugger support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package dap-mode :straight t)
+#+END_SRC
+*** Enhanced Git support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package magit :straight t)
+  (use-package gh :straight t)
+  (use-package diff-hl :straight t :config (global-diff-hl-mode))
+#+END_SRC
+*** Editorconfig support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package editorconfig :straight t :config (editorconfig-mode 1))
+#+END_SRC
+
+*** Financial
+#+BEGIN_SRC emacs-lisp :tangle yes
+
+  (use-package ledger-mode
+    :straight t
+    ;; ledger mode is initially using ledger, you can force ledger-mode to use hledger instead.
+    :config (setq ledger-binary-path 'hledger)
+    :bind ("C-c fl" . ledger-mode))
+
+#+END_SRC
+*** Ligature support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package ligature
+    :straight (ligature :type git :host github :repo "mickeynp/ligature.el")
+    :config
+    (ligature-set-ligatures 'prog-mode
+  			  '("www" "**" "***" "**/" "*>" "*/" "\\\\"
+    "\\\\\\" "{-" "::" ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->"
+    "->>" "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
+    "#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**" "/="
+    "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>" "++" "+++"
+    "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<=" "=<<" "=/=" ">-" ">="
+    ">=>" ">>" ">>-" ">>=" ">>>" "<*" "<*>" "<|" "<|>" "<$" "<$>" "<!--"
+    "<-" "<--" "<->" "<+" "<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-"
+    "<<=" "<<<" "<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%"))
+    (when (display-graphic-p) global-ligature-mode 1))
+#+END_SRC
+
+*** LSP support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package eglot
+   :config
+   (add-to-list 'eglot-server-programs `((web-mode) . ("omnisharp" "--languageserver" )))
+   (add-to-list 'eglot-server-programs `((typst-ts-mode) . ("tinymist" "lsp")))
+   (add-to-list 'eglot-server-programs
+                `((rust-ts-mode rust-mode) . ("rust-analyzer" :initializationOptions
+                                              (:check (:command "clippy")
+                                                      :procMacro (:enable t)
+                                                      :cargo (:loadOutDirsFromCheck t))))))
+#+END_SRC
+*** Snippets
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package yasnippet
+    :straight t
+    :init
+    (setq snippets-dir (expand-file-name "snippets" distrib-local-dir))
+    (setq yas-verbosity 2)
+    (defvar yas-snippet-dirs "")
+    (setq yas-snippet-dirs (list (eval 'snippets-dir)))
+    :hook
+    ((prog-mode . yas-minor-mode)
+     (org-mode . yas-minor-mode))
+    :config
+    (yas-reload-all)
+    :commands (yas-minor-mode-on
+  	     yas-expand
+  	     yas-expand-snippet
+  	     yas-lookup-snippet
+  	     yas-insert-snippet
+  	     yas-new-snippet
+  	     yas-visit-snippet-file
+  	     yas-activate-extra-mode
+  	     yas-maybe-expand-abbrev-key-filter)
+  )
+
+  (use-package yasnippet-snippets :straight t)
+#+END_SRC
+*** PDF support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package pdf-tools :straight t)
+#+END_SRC
+*** Enhanced terminal
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package vterm :straight t)
+#+END_SRC
+** Programming environments
+*** General programming environment
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (setq display-line-numbers-type 'relative)
+  (add-hook 'prog-mode-hook
+  	  (lambda ()
+  	      (let ((is-lisp (if (>= emacs-major-version 28)
+  				 (derived-mode-p 'lisp-data-mode)
+  			       (derived-mode-p 'lisp-mode 'emacs-lisp-mode 'lisp-interaction-mode))))
+  		(unless is-lisp
+  		  (eglot-ensure)))
+  	      (subword-mode)
+  	      (when (fboundp 'display-line-numbers-mode)
+  		(display-line-numbers-mode))))
+
+  (use-package project
+    :custom (project-list-file (expand-file-name "projects.eld" distrib-cache-dir)))
+#+END_SRC
+*** HTML/CSS support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package web-mode
+      :straight t
+      :mode
+      (("\\.phtml\\'" . web-mode)
+       ("\\.cshtml\\'" . web-mode)
+       ("\\.tpl\\.php\\'" . web-mode)
+       ("\\.blade\\.php\\'" . web-mode)
+       ("\\.[agj]sp\\'" . web-mode)
+       ("\\.as[cp]x\\'" . web-mode)
+       ("\\.razor\\'" . web-mode)
+       ("\\.erb\\'" . web-mode)
+       ("\\.mustache\\'" . web-mode)
+       ("\\.djhtml\\'" . web-mode)
+       ("\\.html?\\'" . web-mode)
+       ("\\.css\\'" . web-mode))
+      :hook
+      ((web-mode . eglot-ensure)
+       (web-mode . remove-unnecessary-webmode-faces)
+       )
+      :config
+      (set-face-attribute 'web-mode-css-at-rule-face nil :foreground "Pink3")
+      (when (and (featurep 'company) (featurep 'company-web-html) (featurep 'company-css))
+    	(add-to-list 'company-backends '(company-css company-web-html)))
+      ;; Disable background for certain faces
+      (add-hook 'enable-theme-functions
+    			'remove-unnecessary-webmode-faces)
+      ;; Disable extra highlighting features
+      (setq web-mode-enable-current-element-highlight nil
+            web-mode-enable-current-column-highlight nil
+            web-mode-enable-block-face nil
+            web-mode-enable-part-face nil))
+
+  (use-package emmet-mode
+    :straight t
+    :config
+    (setq emmet-self-closing-tag-style "")
+    (emmet-mode 1)
+    :hook (web-mode))
+#+END_SRC
+
+*** Javascript support
+#+BEGIN_SRC emacs-lisp :tangle yes
+
+#+END_SRC
+
+*** Lua language support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package lua-mode :straight t)
+#+END_SRC
+
+*** Python language support
+#+BEGIN_SRC emacs-lisp :tangle yes
+  (use-package pyvenv
+      :straight t
+      :config
+      (advice-add 'python-mode :before #'pyvenv-mode))
+
+  (use-package python-ts-mode
+    :straight (python-ts-mode :type built-in :pin nil))
+    ;;   :config
+    ;;   (require 'dap-python)
+    ;;   (setq dap-python-debugger 'debugpy)
+    ;;   (defun dap-python--pyenv-executable (command)
+    ;;     (with-venv (executable-find "python")))
+    ;;   (setq python-shell-interpreter "ipython"
+    ;; 	python-shell-interpreter-arg "-i --simple-prompt")
+    ;;   (add-hook 'dap-stopped-hook
+    ;; 	    (lambda (arg) (call-interactively #'dap-hydra)))
+    ;;   )
+
+  (use-package with-venv :straight t)
+#+END_SRC
+
+*** C-sharp language support
+#+BEGIN_SRC emacs-lisp :tangle yes 
+  (use-package csharp-mode :straight (csharp-mode :type built-in :pin nil))
+#+END_SRC
+
+*** Rust language support  
+#+BEGIN_SRC emacs-lisp :tangle yes 
+  (use-package rust-ts-mode
+    :straight (rust-ts-mode :type built-in :pin nil)
+    :mode ("\\.rs\\'" . rust-ts-mode))
+#+END_SRC
+
+*** Tex language support
+#+BEGIN_SRC emacs-lisp :tangle yes 
+  (use-package auctex
+    :straight t
+    :config
+    (setq TeX-auto-save t)
+    (setq TeX-parse-self t)
+    (setq-default Tex-Master t)
+    (setq reftex-plug-into-AUCTeX t)
+    :mode (("\\.tex\\'" . LaTeX-mode))
+    :hook ((LaTeX-mode . eglot-ensure)
+  		 (LaTeX-mode . turn-on-reftex)))
+#+END_SRC
+*** Typst language support
+#+BEGIN_SRC emacs-lisp :tangle yes 
+  (use-package typst-ts-mode :straight t :hook ((typst-ts-mode . eglot-ensure)))
+#+END_SRC
